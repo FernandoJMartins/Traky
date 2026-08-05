@@ -219,13 +219,12 @@ export async function syncCampaignsFull(
       ]);
       const campEntById = new Map(campEnts.map((c) => [c.id, c]));
 
-      // Só campanhas com atividade (gasto no período) — evita encher o banco.
-      const spendByCamp = new Map<string, number>();
-      for (const i of insights) spendByCamp.set(i.campaignId, (spendByCamp.get(i.campaignId) ?? 0) + i.spendCents);
-      const activeMetaCampIds = [...spendByCamp.entries()].filter(([, s]) => s > 0).map(([id]) => id);
+      // Mantém a estrutura completa no período. Se a janela não teve gasto,
+      // ainda assim precisamos atualizar conjuntos/anúncios para evitar snapshot velho.
+      const allMetaCampIds = campEnts.map((c) => c.id);
 
       const campMap = new Map<string, string>(); // metaCampaignId -> nosso id
-      const metaCampToUpsert = new Set<string>([...activeMetaCampIds, ...insights.map((i) => i.campaignId)]);
+      const metaCampToUpsert = new Set<string>([...allMetaCampIds, ...insights.map((i) => i.campaignId)]);
       for (const metaCampId of metaCampToUpsert) {
         const ent = campEntById.get(metaCampId);
         const name = ent?.name ?? insights.find((i) => i.campaignId === metaCampId)?.campaignName ?? metaCampId;
@@ -255,15 +254,13 @@ export async function syncCampaignsFull(
           });
       }
 
-      if (!activeMetaCampIds.length) continue; // sem gasto = não busca conjuntos/anúncios
-
       // 3-5) conjuntos + anúncios (estrutura + snapshot de gasto) — 4 chamadas em
       // paralelo (independentes). Reduz a espera de 4 idas em fila pra 1 onda.
       const [adsetEnts, adsetIns, adEnts, adIns] = await Promise.all([
-        getAdSets(acc.metaAccountId, activeMetaCampIds, token),
-        getBreakdownInsights(acc.metaAccountId, activeMetaCampIds, token, "adset", sinceStr, untilStr),
-        getAds(acc.metaAccountId, activeMetaCampIds, token),
-        getBreakdownInsights(acc.metaAccountId, activeMetaCampIds, token, "ad", sinceStr, untilStr),
+        getAdSets(acc.metaAccountId, allMetaCampIds, token),
+        getBreakdownInsights(acc.metaAccountId, allMetaCampIds, token, "adset", sinceStr, untilStr),
+        getAds(acc.metaAccountId, allMetaCampIds, token),
+        getBreakdownInsights(acc.metaAccountId, allMetaCampIds, token, "ad", sinceStr, untilStr),
       ]);
       const adsetInsById = new Map(adsetIns.map((i) => [i.entityId, i]));
       const adsetMap = new Map<string, string>(); // metaAdSetId -> nosso id
