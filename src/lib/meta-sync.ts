@@ -172,10 +172,13 @@ const st = (eff: string | undefined) => (eff === "ACTIVE" ? "active" : "paused")
  */
 export async function syncCampaignsFull(
   dashboardId: string,
-  days = 30,
+  daysOrWindow:
+    | number
+    | { days?: number; from?: string; to?: string; staggerMs?: number; trigger?: "manual" | "scheduled" } = 30,
   opts: { staggerMs?: number; trigger?: "manual" | "scheduled" } = {},
 ) {
-  const staggerMs = opts.staggerMs ?? 0;
+  const window = typeof daysOrWindow === "number" ? { days: daysOrWindow } : daysOrWindow;
+  const staggerMs = window.staggerMs ?? opts.staggerMs ?? 0;
   const conns = await db
     .select()
     .from(metaConnections)
@@ -187,14 +190,14 @@ export async function syncCampaignsFull(
     .where(and(eq(adAccounts.dashboardId, dashboardId), eq(adAccounts.active, true)));
 
   const until = new Date();
-  const since = new Date(until.getTime() - days * 86400_000);
-  const sinceStr = since.toISOString().slice(0, 10);
-  const untilStr = until.toISOString().slice(0, 10);
+  const since = new Date(until.getTime() - (window.days ?? 30) * 86400_000);
+  const sinceStr = window.from ?? since.toISOString().slice(0, 10);
+  const untilStr = window.to ?? until.toISOString().slice(0, 10);
   const now = new Date();
 
   const [run] = await db
     .insert(syncRuns)
-    .values({ dashboardId, trigger: opts.trigger ?? "manual" })
+    .values({ dashboardId, trigger: window.trigger ?? opts.trigger ?? "manual" })
     .returning({ id: syncRuns.id });
 
   let campaignsUpserted = 0;

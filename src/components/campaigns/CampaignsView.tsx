@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { CampaignsData, CampaignRow } from "@/lib/queries";
 import { money, percent, multiple, num, ratio } from "@/lib/format";
 import {
@@ -113,7 +113,32 @@ const ACTION_MAP: Record<string, string> = {
   ativar: "activate", pausar: "pause", "orçamento": "budget", bidcap: "bidcap", duplicar: "duplicate", excluir: "delete",
 };
 
-export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<CampaignsData>; currentPeriodKey: string }) {
+export function CampaignsView({
+  data,
+  currentPeriodKey,
+  currentPeriodFrom,
+  currentPeriodTo,
+  initialLevel,
+  initialSelectedAccounts,
+  initialSelectedCampaigns,
+  initialSelectedAdsets,
+  initialSelectedAds,
+  initialCampaignScope,
+  initialAdsetScope,
+}: {
+  data: NonNullable<CampaignsData>;
+  currentPeriodKey: string;
+  currentPeriodFrom: string | null;
+  currentPeriodTo: string | null;
+  initialLevel: Level;
+  initialSelectedAccounts: string[];
+  initialSelectedCampaigns: string[];
+  initialSelectedAdsets: string[];
+  initialSelectedAds: string[];
+  initialCampaignScope: string[];
+  initialAdsetScope: string[];
+}) {
+  const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -121,14 +146,17 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
   const [status, setStatus] = useState("all");
   const [accountId, setAccountId] = useState("all");
   const [product, setProduct] = useState("all");
-  const [campaignScope, setCampaignScope] = useState<string[]>([]);
-  const [adsetScope, setAdsetScope] = useState<string[]>([]);
-  const [level, setLevel] = useState<Level>("campaign");
+  const [campaignScope, setCampaignScope] = useState<string[]>(initialCampaignScope);
+  const [adsetScope, setAdsetScope] = useState<string[]>(initialAdsetScope);
+  const [level, setLevel] = useState<Level>(initialLevel);
   const [sortKey, setSortKey] = useState("revenueCents");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [visible, setVisible] = useState<string[]>(DEFAULT_COLS);
   const [showCols, setShowCols] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>(initialSelectedAccounts);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>(initialSelectedCampaigns);
+  const [selectedAdsets, setSelectedAdsets] = useState<string[]>(initialSelectedAdsets);
+  const [selectedAds, setSelectedAds] = useState<string[]>(initialSelectedAds);
   const [pinned, setPinned] = useState<Set<string>>(new Set());
   const [onlySelected, setOnlySelected] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -139,6 +167,24 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
   const [showCharts, setShowCharts] = useState(false);
   const PAGE_SIZE = 100;
   const lastAutoSyncRef = useRef<string | null>(null);
+
+  function unique(values: string[]) {
+    return [...new Set(values.filter(Boolean))];
+  }
+
+  function csv(values: string[]) {
+    return unique(values).join(",");
+  }
+
+  const activeSelected =
+    level === "account"
+      ? selectedAccounts
+      : level === "campaign"
+        ? selectedCampaigns
+        : level === "adset"
+          ? selectedAdsets
+          : selectedAds;
+  const activeSelectedSet = useMemo(() => new Set(activeSelected), [activeSelected]);
 
   useEffect(() => {
     const c = localStorage.getItem(LS_COLS);
@@ -157,8 +203,8 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
     });
   }
 
-  // Trocar de nível limpa a seleção (ids de níveis diferentes não se misturam).
-  useEffect(() => { setSelected(new Set()); setOnlySelected(false); }, [level]);
+  // Trocar de nível preserva a seleção no nível anterior; só limpa o filtro "só selecionadas".
+  useEffect(() => { setOnlySelected(false); }, [level]);
 
   useEffect(() => {
     if (level === "campaign") {
@@ -172,18 +218,36 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
   }, [level]);
 
   useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("level", level);
+    if (campaignScope.length) params.set("scopeCampaigns", csv(campaignScope));
+    if (adsetScope.length) params.set("scopeAdsets", csv(adsetScope));
+    if (selectedAccounts.length) params.set("selAccounts", csv(selectedAccounts));
+    if (selectedCampaigns.length) params.set("selCampaigns", csv(selectedCampaigns));
+    if (selectedAdsets.length) params.set("selAdsets", csv(selectedAdsets));
+    if (selectedAds.length) params.set("selAds", csv(selectedAds));
+    const nextUrl = `${pathname}?${params.toString()}`;
+    if (typeof window !== "undefined" && window.location.pathname + window.location.search !== nextUrl) {
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, [pathname, level, campaignScope, adsetScope, selectedAccounts, selectedCampaigns, selectedAdsets, selectedAds]);
+
+  useEffect(() => {
     if (level === "campaign") return;
-    const syncKey = `${currentPeriodKey}:${level}`;
+    const syncKey = `${currentPeriodKey}:${currentPeriodFrom ?? ""}:${currentPeriodTo ?? ""}:${level}`;
     if (lastAutoSyncRef.current === syncKey) return;
     lastAutoSyncRef.current = syncKey;
     let alive = true;
     setSyncing(true);
     (async () => {
       try {
+        const body = currentPeriodFrom && currentPeriodTo
+          ? { from: currentPeriodFrom, to: currentPeriodTo }
+          : { days: currentPeriodKey === "today" ? 1 : currentPeriodKey === "yesterday" ? 1 : currentPeriodKey === "7d" ? 7 : currentPeriodKey === "14d" ? 14 : currentPeriodKey === "30d" ? 30 : currentPeriodKey === "this_month" ? 31 : 90 };
         const res = await fetch("/api/campaigns/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ days: 30 }),
+          body: JSON.stringify(body),
         });
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.message ?? "Falha");
@@ -197,7 +261,7 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
     return () => {
       alive = false;
     };
-  }, [currentPeriodKey, level, router]);
+  }, [currentPeriodKey, currentPeriodFrom, currentPeriodTo, level, router]);
 
   function saveCols(next: string[]) {
     localStorage.setItem(LS_COLS, JSON.stringify(next));
@@ -278,7 +342,7 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
         const parentRowId = r.parentId;
         if (!parentRowId || !adsetScope.includes(parentRowId)) return false;
       }
-      if (onlySelected && !selected.has(r.id)) return false;
+      if (onlySelected && !activeSelectedSet.has(r.id)) return false;
       return true;
     });
     const col = COLUMNS.find((c) => c.key === sortKey);
@@ -292,7 +356,7 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
       return sortDir === "asc" ? cmp : -cmp;
     });
     return rows;
-  }, [levelRows, search, status, accountId, product, campaignScope, adsetScope, level, sortKey, sortDir, pinned, onlySelected, selected]);
+  }, [levelRows, search, status, accountId, product, campaignScope, adsetScope, level, sortKey, sortDir, pinned, onlySelected, activeSelectedSet]);
 
   // Paginação (100/página). Reseta ao mudar nível/filtros.
   useEffect(() => { setPage(1); }, [search, status, accountId, product, campaignScope, adsetScope, level, onlySelected]);
@@ -307,19 +371,19 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
   const topProfit = useMemo(() => [...filtered].sort((a, b) => b.profitCents - a.profitCents).slice(0, 5), [filtered]);
 
   const compareRows = useMemo(() => {
-    const base = selected.size > 0 ? filtered.filter((r) => selected.has(r.id)) : filtered;
+    const base = activeSelectedSet.size > 0 ? filtered.filter((r) => activeSelectedSet.has(r.id)) : filtered;
     return [...base].sort((a, b) => b.revenueCents - a.revenueCents).slice(0, 8).map((r) => ({
       name: r.name.length > 14 ? r.name.slice(0, 13) + "…" : r.name,
       Faturamento: r.revenueCents / 100,
       Gasto: r.spendCents / 100,
       Lucro: r.profitCents / 100,
     }));
-  }, [filtered, selected]);
+  }, [filtered, activeSelectedSet]);
 
   const trendCampaigns = useMemo(() => {
-    const base = selected.size > 0 ? filtered.filter((r) => selected.has(r.id)) : filtered;
+    const base = activeSelectedSet.size > 0 ? filtered.filter((r) => activeSelectedSet.has(r.id)) : filtered;
     return [...base].sort((a, b) => b.profitCents - a.profitCents).slice(0, 6);
-  }, [filtered, selected]);
+  }, [filtered, activeSelectedSet]);
 
   const trendData = useMemo(() => {
     return data.series.dates.map((date, i) => {
@@ -342,12 +406,16 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
     else { setSortKey(key); setSortDir("desc"); }
   }
   function toggleSelect(id: string) {
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    if (level === "account") setSelectedAccounts((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    else if (level === "campaign") setSelectedCampaigns((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    else if (level === "adset") setSelectedAdsets((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    else setSelectedAds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   function selectedRowsFor(levelName: Level) {
     const source = levelName === "account" ? data.accountRows ?? [] : levelName === "adset" ? data.adsetRows : levelName === "ad" ? data.adRows : data.rows;
-    return source.filter((r) => selected.has(r.id));
+    const ids = levelName === "account" ? selectedAccounts : levelName === "campaign" ? selectedCampaigns : levelName === "adset" ? selectedAdsets : selectedAds;
+    return source.filter((r) => ids.includes(r.id));
   }
 
   function goToLevel(next: Level) {
@@ -368,7 +436,11 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
     setLevel(next);
   }
   function selectAll() {
-    setSelected((prev) => (prev.size === filtered.length ? new Set() : new Set(filtered.map((r) => r.id))));
+    const ids = filtered.map((r) => r.id);
+    if (level === "account") setSelectedAccounts((prev) => (prev.length === ids.length ? [] : ids));
+    else if (level === "campaign") setSelectedCampaigns((prev) => (prev.length === ids.length ? [] : ids));
+    else if (level === "adset") setSelectedAdsets((prev) => (prev.length === ids.length ? [] : ids));
+    else setSelectedAds((prev) => (prev.length === ids.length ? [] : ids));
   }
   async function copyId(id: string) {
     await navigator.clipboard.writeText(id);
@@ -399,7 +471,6 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
         `${data.okCount}/${data.total} concluída(s).` +
         (fails.length ? "\n\nNão aplicadas:\n" + fails.map((f: { name: string; message: string }) => `• ${f.name}: ${f.message}`).join("\n") : ""),
       );
-      setSelected(new Set());
       router.refresh();
     } catch (e) {
       alert(`Erro: ${e instanceof Error ? e.message : "desconhecido"}`);
@@ -447,12 +518,28 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
     <div className="space-y-4">
       {/* Nível (Sincronizar agora é global, na navbar) */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-lg border border-line bg-panel p-1 w-fit">
+        <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-line bg-panel p-1 sm:grid-cols-4">
           {LEVELS.map((l) => (
-            <button key={l.k}
+            <button
+              key={l.k}
               onClick={() => goToLevel(l.k)}
-              className={`px-3 py-1.5 text-sm rounded-md ${level === l.k ? "bg-accent text-bg font-medium" : "text-muted hover:text-text"}`}>
-              {l.label}
+              className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${level === l.k ? "bg-accent text-bg font-medium shadow-sm" : "text-muted hover:bg-panel-2 hover:text-text"}`}
+            >
+              <span className="truncate">{l.label}</span>
+              {((l.k === "account" && selectedAccounts.length > 0) ||
+                (l.k === "campaign" && selectedCampaigns.length > 0) ||
+                (l.k === "adset" && selectedAdsets.length > 0) ||
+                (l.k === "ad" && selectedAds.length > 0)) && (
+                <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-bg/15 px-2 py-0.5 text-xs font-semibold tabular-nums text-bg">
+                  {l.k === "account"
+                    ? selectedAccounts.length
+                    : l.k === "campaign"
+                      ? selectedCampaigns.length
+                      : l.k === "adset"
+                        ? selectedAdsets.length
+                        : selectedAds.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -538,7 +625,7 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
         <TopList title="Maiores Lucros" icon={<Trophy size={15} className="text-warn" />} rows={topProfit} metric={(r) => money(r.profitCents)} bar={(r) => r.profitCents} />
         <div className="rounded-xl border border-line bg-panel/70 p-4">
           <div className="flex items-center gap-2 text-sm font-medium mb-3">
-            <BarChart3 size={15} className="text-accent" /> Comparativo {selected.size > 0 ? `(${selected.size} selec.)` : "(top 8)"}
+            <BarChart3 size={15} className="text-accent" /> Comparativo {activeSelected.length > 0 ? `(${activeSelected.length} selec.)` : "(top 8)"}
           </div>
           {compareRows.length === 0 ? <p className="text-sm text-faint py-4 text-center">Sem dados.</p> : (
             <ResponsiveContainer width="100%" height={180}>
@@ -565,7 +652,7 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
           <div className="text-sm font-medium">
             Evolução — últimos 7 dias{" "}
             <span className="text-faint font-normal">
-              ({selected.size > 0 ? `${trendCampaigns.length} selec.` : "top 6"})
+              ({activeSelected.length > 0 ? `${trendCampaigns.length} selec.` : "top 6"})
             </span>
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-line bg-panel p-0.5">
@@ -605,20 +692,20 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
       )}
 
       {/* Barra de ações em massa */}
-      {selected.size > 0 && (
+      {activeSelected.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
-          <span className="font-medium">{selected.size} selecionada(s)</span>
+          <span className="font-medium">{activeSelected.length} selecionada(s)</span>
           <button onClick={() => setOnlySelected((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 ${onlySelected ? "bg-accent text-bg" : "hover:bg-panel-2"}`}>
             <Filter size={14} /> {onlySelected ? "Ver todas" : "Ver só selecionadas"}
           </button>
           {canWrite && (
             <div className="ml-auto flex flex-wrap gap-2">
-              <BulkBtn onClick={() => metaWrite("ativar", [...selected])} cls="bg-pos/20 text-pos hover:bg-pos/30" icon={<Play size={14} />}>Ativar</BulkBtn>
-              <BulkBtn onClick={() => metaWrite("pausar", [...selected])} cls="bg-warn/20 text-warn hover:bg-warn/30" icon={<Pause size={14} />}>Pausar</BulkBtn>
-              {fullActions && <BulkBtn onClick={() => setModal({ type: "duplicate", ids: [...selected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<CopyPlus size={14} />}>Duplicar</BulkBtn>}
-              <BulkBtn onClick={() => setModal({ type: "budget", ids: [...selected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<DollarSign size={14} />}>Orçamento</BulkBtn>
-              {level === "adset" && <BulkBtn onClick={() => setModal({ type: "bidcap", ids: [...selected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<Gauge size={14} />}>Bid Cap</BulkBtn>}
-              {fullActions && <BulkBtn onClick={() => askDelete([...selected])} cls="bg-neg/20 text-neg hover:bg-neg/30" icon={<Trash2 size={14} />}>Excluir</BulkBtn>}
+              <BulkBtn onClick={() => metaWrite("ativar", [...activeSelected])} cls="bg-pos/20 text-pos hover:bg-pos/30" icon={<Play size={14} />}>Ativar</BulkBtn>
+              <BulkBtn onClick={() => metaWrite("pausar", [...activeSelected])} cls="bg-warn/20 text-warn hover:bg-warn/30" icon={<Pause size={14} />}>Pausar</BulkBtn>
+              {fullActions && <BulkBtn onClick={() => setModal({ type: "duplicate", ids: [...activeSelected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<CopyPlus size={14} />}>Duplicar</BulkBtn>}
+              <BulkBtn onClick={() => setModal({ type: "budget", ids: [...activeSelected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<DollarSign size={14} />}>Orçamento</BulkBtn>
+              {level === "adset" && <BulkBtn onClick={() => setModal({ type: "bidcap", ids: [...activeSelected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<Gauge size={14} />}>Bid Cap</BulkBtn>}
+              {fullActions && <BulkBtn onClick={() => askDelete([...activeSelected])} cls="bg-neg/20 text-neg hover:bg-neg/30" icon={<Trash2 size={14} />}>Excluir</BulkBtn>}
             </div>
           )}
         </div>
@@ -629,7 +716,7 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
         <table className="w-full text-sm min-w-[900px]">
           <thead>
             <tr className="text-left text-xs text-muted border-b border-line">
-              <th className="py-2.5 pl-3 w-8"><input type="checkbox" checked={selected.size > 0 && selected.size === filtered.length} onChange={selectAll} className="accent-[var(--color-accent)]" /></th>
+              <th className="py-2.5 pl-3 w-8"><input type="checkbox" checked={activeSelected.length > 0 && activeSelected.length === filtered.length} onChange={selectAll} className="accent-[var(--color-accent)]" /></th>
               {canWrite && <th className="py-2.5 px-2 w-12 font-medium text-center">On/Off</th>}
               <th className="py-2.5 px-3 font-medium">
                 <button onClick={() => sortBy("name")} className="flex items-center gap-1 hover:text-text">{LEVELS.find((l) => l.k === level)?.label.replace(/s$/, "")} <ArrowUpDown size={12} /></button>
@@ -645,7 +732,7 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
           <tbody>
             {paged.map((r) => (
               <tr key={r.id} className="border-b border-line/60 hover:bg-panel-2/50">
-                <td className="py-2.5 pl-3"><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)} className="accent-[var(--color-accent)]" /></td>
+                <td className="py-2.5 pl-3"><input type="checkbox" checked={activeSelectedSet.has(r.id)} onChange={() => toggleSelect(r.id)} className="accent-[var(--color-accent)]" /></td>
                 {canWrite && (
                   <td className="py-2.5 px-2 text-center">
                     <StatusToggle active={r.status === "active"} busy={togglingId === r.id} onToggle={() => quickToggle(r)} />
