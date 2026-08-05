@@ -241,11 +241,22 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
     [data.rows],
   );
   const adsetOptions = useMemo(() => {
-    const rows = data.adsetRows.filter((r) => campaignScope.length === 0 || campaignScope.includes(r.campaignId));
+    const rows = data.adsetRows.filter((r) => {
+      if (campaignScope.length === 0) return true;
+      return r.campaignId !== null && campaignScope.includes(r.campaignId);
+    });
     return [...rows].sort((a, b) => a.name.localeCompare(b.name));
   }, [data.adsetRows, campaignScope]);
   const adOptions = useMemo(() => {
-    const rows = data.adRows.filter((r) => (campaignScope.length === 0 || campaignScope.includes(r.campaignId)) && (adsetScope.length === 0 || adsetScope.includes(r.parentId)));
+    const rows = data.adRows.filter((r) => {
+      if (campaignScope.length > 0 && (r.campaignId === null || !campaignScope.includes(r.campaignId))) {
+        return false;
+      }
+      if (adsetScope.length > 0 && (r.parentId === null || !adsetScope.includes(r.parentId))) {
+        return false;
+      }
+      return true;
+    });
     return [...rows].sort((a, b) => a.name.localeCompare(b.name));
   }, [data.adRows, campaignScope, adsetScope]);
 
