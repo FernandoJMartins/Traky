@@ -1,10 +1,11 @@
 import { getCampaignsData } from "@/lib/queries";
+import { getCurrentPeriod } from "@/lib/period";
 import { CampaignsView } from "@/components/campaigns/CampaignsView";
 
 export const dynamic = "force-dynamic";
 
 export default async function CampanhasPage() {
-  const data = await getCampaignsData();
+  const [data, period] = await Promise.all([getCampaignsData(), getCurrentPeriod()]);
 
   if (!data) {
     return (
@@ -22,7 +23,7 @@ export default async function CampanhasPage() {
           conta → campanha → conjunto → anúncio · percebe na hora quem está no lucro
         </p>
       </div>
-      <CampaignsView data={data} />
+      <CampaignsView data={data} currentPeriodKey={period.key} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { CampaignsData, CampaignRow } from "@/lib/queries";
 import { money, percent, multiple, num, ratio } from "@/lib/format";
@@ -44,6 +44,7 @@ const DELIVERY_LABELS: Record<string, string> = {
   PENDING_REVIEW: "Em análise", DISAPPROVED: "Reprovado", PREAPPROVED: "Pré-aprovado",
   PENDING_BILLING_INFO: "Pgto pendente", CAMPAIGN_PAUSED: "Campanha pausada",
   ADSET_PAUSED: "Conjunto pausado", IN_PROCESS: "Em processo", WITH_ISSUES: "Com problemas",
+  RESTRICTED: "Com restrições",
   DISABLED: "Desativada", UNSETTLED: "Pendência financeira",
 };
 const DELIVERY_CLS: Record<string, string> = {
@@ -78,7 +79,7 @@ const COLUMNS: Col[] = [
   { key: "sales", label: "Vendas", numeric: true, render: (r) => num(r.sales), value: (r) => r.sales },
   { key: "spendCents", label: "Gastos", numeric: true, render: (r) => money(r.spendCents), value: (r) => r.spendCents },
   { key: "revenueCents", label: "Faturamento", numeric: true, render: (r) => money(r.revenueCents), value: (r) => r.revenueCents },
-  { key: "profitCents", label: "Lucro", numeric: true, render: (r) => <span className={r.profitCents >= 0 ? "text-pos" : "text-neg"}>{money(r.profitCents)}</span>, value: (r) => r.profitCents },
+  { key: "profitCents", label: "Lucro", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.profitCents >= 0 ? "text-pos" : "text-neg"}`}>{money(r.profitCents)}</span>, value: (r) => r.profitCents },
   { key: "budgetCents", label: "Orçamento", numeric: true, render: (r) => budgetCell(r.budgetCents), value: (r) => r.budgetCents },
   { key: "bidCents", label: "Bid Cap", numeric: true, render: (r) => (r.bidCents != null ? money(r.bidCents) : "—"), value: (r) => r.bidCents ?? -Infinity },
   { key: "roi", label: "ROI", numeric: true, render: (r) => ratio(r.roi), value: (r) => r.roi ?? -Infinity },
@@ -112,13 +113,16 @@ const ACTION_MAP: Record<string, string> = {
   ativar: "activate", pausar: "pause", "orçamento": "budget", bidcap: "bidcap", duplicar: "duplicate", excluir: "delete",
 };
 
-export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
+export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<CampaignsData>; currentPeriodKey: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [accountId, setAccountId] = useState("all");
   const [product, setProduct] = useState("all");
+  const [campaignScope, setCampaignScope] = useState<string[]>([]);
+  const [adsetScope, setAdsetScope] = useState<string[]>([]);
   const [level, setLevel] = useState<Level>("campaign");
   const [sortKey, setSortKey] = useState("revenueCents");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -134,6 +138,7 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showCharts, setShowCharts] = useState(false);
   const PAGE_SIZE = 100;
+  const lastAutoSyncRef = useRef<string | null>(null);
 
   useEffect(() => {
     const c = localStorage.getItem(LS_COLS);
@@ -154,6 +159,45 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
 
   // Trocar de nível limpa a seleção (ids de níveis diferentes não se misturam).
   useEffect(() => { setSelected(new Set()); setOnlySelected(false); }, [level]);
+
+  useEffect(() => {
+    if (level === "campaign") {
+      setCampaignScope([]);
+      setAdsetScope([]);
+      return;
+    }
+    if (level === "adset") {
+      setAdsetScope([]);
+    }
+  }, [level]);
+
+  useEffect(() => {
+    if (level === "campaign") return;
+    const syncKey = `${currentPeriodKey}:${level}`;
+    if (lastAutoSyncRef.current === syncKey) return;
+    lastAutoSyncRef.current = syncKey;
+    let alive = true;
+    setSyncing(true);
+    (async () => {
+      try {
+        const res = await fetch("/api/campaigns/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ days: 30 }),
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.message ?? "Falha");
+        if (alive) router.refresh();
+      } catch {
+        if (alive) lastAutoSyncRef.current = null;
+      } finally {
+        if (alive) setSyncing(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [currentPeriodKey, level, router]);
 
   function saveCols(next: string[]) {
     localStorage.setItem(LS_COLS, JSON.stringify(next));
@@ -192,6 +236,19 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
     return data.rows;
   }, [level, data]);
 
+  const campaignOptions = useMemo(
+    () => [...data.rows].sort((a, b) => a.name.localeCompare(b.name)),
+    [data.rows],
+  );
+  const adsetOptions = useMemo(() => {
+    const rows = data.adsetRows.filter((r) => campaignScope.length === 0 || campaignScope.includes(r.campaignId));
+    return [...rows].sort((a, b) => a.name.localeCompare(b.name));
+  }, [data.adsetRows, campaignScope]);
+  const adOptions = useMemo(() => {
+    const rows = data.adRows.filter((r) => (campaignScope.length === 0 || campaignScope.includes(r.campaignId)) && (adsetScope.length === 0 || adsetScope.includes(r.parentId)));
+    return [...rows].sort((a, b) => a.name.localeCompare(b.name));
+  }, [data.adRows, campaignScope, adsetScope]);
+
   const canWrite = level === "campaign" || level === "adset";
   const fullActions = level === "campaign";
   const isCampaign = level === "campaign";
@@ -202,6 +259,12 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
       if (status !== "all" && r.status !== status) return false;
       if (accountId !== "all" && r.accountId !== accountId) return false;
       if (product !== "all" && !r.products.includes(product)) return false;
+      if ((level === "adset" || level === "ad") && campaignScope.length > 0) {
+        if (!r.campaignId || !campaignScope.includes(r.campaignId)) return false;
+      }
+      if (level === "ad" && adsetScope.length > 0) {
+        if (!r.parentId || !adsetScope.includes(r.parentId)) return false;
+      }
       if (onlySelected && !selected.has(r.id)) return false;
       return true;
     });
@@ -216,10 +279,10 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return rows;
-  }, [levelRows, search, status, accountId, product, sortKey, sortDir, pinned, onlySelected, selected]);
+  }, [levelRows, search, status, accountId, product, campaignScope, adsetScope, level, sortKey, sortDir, pinned, onlySelected, selected]);
 
   // Paginação (100/página). Reseta ao mudar nível/filtros.
-  useEffect(() => { setPage(1); }, [search, status, accountId, product, level, onlySelected]);
+  useEffect(() => { setPage(1); }, [search, status, accountId, product, campaignScope, adsetScope, level, onlySelected]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paged = useMemo(
@@ -267,6 +330,29 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
   }
   function toggleSelect(id: string) {
     setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+
+  function selectedRowsFor(levelName: Level) {
+    const source = levelName === "account" ? data.accountRows ?? [] : levelName === "adset" ? data.adsetRows : levelName === "ad" ? data.adRows : data.rows;
+    return source.filter((r) => selected.has(r.id));
+  }
+
+  function goToLevel(next: Level) {
+    const picked = selectedRowsFor(level);
+    if (next === "campaign") {
+      setCampaignScope([]);
+      setAdsetScope([]);
+    } else if (level === "campaign" && (next === "adset" || next === "ad")) {
+      const campaignIds = picked.length > 0 ? picked.map((r) => r.id) : campaignScope;
+      setCampaignScope(campaignIds);
+      setAdsetScope([]);
+    } else if (level === "adset" && next === "ad") {
+      const adsetIds = picked.length > 0 ? picked.map((r) => r.id) : adsetScope;
+      const parentCampaignIds = picked.length > 0 ? [...new Set(picked.map((r) => r.campaignId).filter(Boolean))] as string[] : campaignScope;
+      setCampaignScope(parentCampaignIds);
+      setAdsetScope(adsetIds);
+    }
+    setLevel(next);
   }
   function selectAll() {
     setSelected((prev) => (prev.size === filtered.length ? new Set() : new Set(filtered.map((r) => r.id))));
@@ -351,12 +437,15 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
         <div className="flex items-center gap-1 rounded-lg border border-line bg-panel p-1 w-fit">
           {LEVELS.map((l) => (
             <button key={l.k}
-              onClick={() => setLevel(l.k)}
+              onClick={() => goToLevel(l.k)}
               className={`px-3 py-1.5 text-sm rounded-md ${level === l.k ? "bg-accent text-bg font-medium" : "text-muted hover:text-text"}`}>
               {l.label}
             </button>
           ))}
         </div>
+        {syncing && (
+          <span className="text-[11px] text-faint">Sincronizando dados da Meta...</span>
+        )}
         {isCampaign && (
           <label className="flex items-center gap-1.5 text-sm text-muted cursor-pointer select-none">
             <input type="checkbox" checked={showCharts} onChange={toggleCharts} className="accent-[var(--color-accent)]" />
@@ -376,6 +465,23 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
         <Select value={status} onChange={setStatus} options={[{ v: "all", l: "Todos os status" }, { v: "active", l: "Ativo" }, { v: "paused", l: "Pausado" }, { v: "restricted", l: "Com restrições" }]} />
         <Select value={accountId} onChange={setAccountId} options={[{ v: "all", l: "Todas as contas" }, ...data.accounts.map((a) => ({ v: a.id, l: a.name }))]} />
         <Select value={product} onChange={setProduct} options={[{ v: "all", l: "Todos os produtos" }, ...data.products.map((p) => ({ v: p, l: p }))]} />
+        {(level === "adset" || level === "ad") && (
+          <Select
+            value={campaignScope[0] ?? "all"}
+            onChange={(v) => {
+              setCampaignScope(v === "all" ? [] : [v]);
+              setAdsetScope([]);
+            }}
+            options={[{ v: "all", l: "Todas as campanhas" }, ...campaignOptions.map((c) => ({ v: c.id, l: c.name }))]}
+          />
+        )}
+        {level === "ad" && (
+          <Select
+            value={adsetScope[0] ?? "all"}
+            onChange={(v) => setAdsetScope(v === "all" ? [] : [v])}
+            options={[{ v: "all", l: "Todos os conjuntos" }, ...adsetOptions.map((a) => ({ v: a.id, l: a.name }))]}
+          />
+        )}
         <div className="relative">
           <button onClick={() => setShowCols((s) => !s)} className="flex items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 text-sm hover:bg-panel-2">
             <SlidersHorizontal size={15} /> Colunas

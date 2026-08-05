@@ -25,7 +25,7 @@ export function CampaignTable({ rows }: { rows: Row[] }) {
             <th className="py-2.5 px-3 font-medium text-right">Vendas</th>
             <th className="py-2.5 px-3 font-medium text-right">Gasto</th>
             <th className="py-2.5 px-3 font-medium text-right">Faturamento</th>
-            <th className="py-2.5 px-3 font-medium text-right">Lucro</th>
+            <th className="py-2.5 px-3 font-medium text-right w-[140px]">Lucro</th>
             <th className="py-2.5 px-3 font-medium text-right">ROI</th>
             <th className="py-2.5 px-3 font-medium text-right">ROAS</th>
             <th className="py-2.5 px-3 font-medium text-right">CPA</th>
@@ -55,7 +55,7 @@ export function CampaignTable({ rows }: { rows: Row[] }) {
                 <td className="py-2.5 px-3 text-right tabular text-muted">{money(r.spendCents)}</td>
                 <td className="py-2.5 px-3 text-right tabular">{money(r.revenueCents)}</td>
                 <td
-                  className={`py-2.5 px-3 text-right tabular font-medium ${
+                  className={`py-2.5 px-3 text-right tabular font-medium whitespace-nowrap w-[140px] ${
                     positive ? "text-pos" : "text-neg"
                   }`}
                 >

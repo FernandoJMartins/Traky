@@ -15,6 +15,9 @@ function buildRow(base: {
   metaId: string;
   name: string;
   status: "active" | "paused" | "restricted";
+  restricted?: boolean;
+  campaignId: string | null;
+  parentId: string | null;
   accountId: string;
   accountName: string;
   currency: string;
@@ -44,6 +47,8 @@ function buildRow(base: {
     metaCampaignId: base.metaId,
     name: base.name,
     status: base.status,
+    campaignId: base.campaignId,
+    parentId: base.parentId,
     accountId: base.accountId,
     accountName: base.accountName,
     currency: base.currency,
@@ -52,7 +57,7 @@ function buildRow(base: {
     budgetCents: base.budgetCents,
     bidCents: base.bidCents,
     parentName: base.parentName,
-    effectiveStatus: base.effectiveStatus,
+    effectiveStatus: base.restricted ? "RESTRICTED" : base.effectiveStatus,
     issueReason: base.issueReason,
     createdAt: base.createdAt,
     pending: base.pending,
@@ -295,6 +300,9 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
       metaId: c.metaCampaignId,
       name: c.name,
       status: restricted ? "restricted" : c.status,
+      restricted,
+      campaignId: c.id,
+      parentId: null,
       accountId: c.adAccountId,
       accountName: acc?.name ?? "—",
       currency: cur,
@@ -404,6 +412,9 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
       return buildRow({
         id: acc.id, metaId: acc.metaAccountId, name: acc.name,
         status: restricted ? "restricted" : "active",
+        restricted,
+        campaignId: null,
+        parentId: null,
         accountId: acc.id, accountName: acc.name, currency: acc.currency,
         product: null, products: [...a.products], budgetCents: 0, bidCents: null, parentName: null,
         effectiveStatus: acc.accountStatus, issueReason: null,
@@ -450,6 +461,9 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
       return buildRow({
         id: a.id, metaId: a.metaAdSetId, name: a.name,
         status: restricted ? "restricted" : a.status,
+        restricted,
+        campaignId: camp?.id ?? null,
+        parentId: camp?.id ?? null,
         accountId: camp?.adAccountId ?? "", accountName: acc?.name ?? "—", currency: cur,
         product: [...rev.products][0] ?? null, products: [...rev.products],
         budgetCents: toBRL(budget, cur), bidCents: a.bidCents != null ? toBRL(a.bidCents, cur) : null,
@@ -478,6 +492,9 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
       return buildRow({
         id: a.id, metaId: a.metaAdId, name: a.name,
         status: restricted ? "restricted" : a.status,
+        restricted,
+        campaignId: camp?.id ?? null,
+        parentId: adset?.id ?? null,
         accountId: camp?.adAccountId ?? "", accountName: acc?.name ?? "—", currency: cur,
         product: [...rev.products][0] ?? null, products: [...rev.products],
         budgetCents: 0, bidCents: null, parentName: adset?.name ?? null,
