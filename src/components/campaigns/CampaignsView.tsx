@@ -260,10 +260,12 @@ export function CampaignsView({ data, currentPeriodKey }: { data: NonNullable<Ca
       if (accountId !== "all" && r.accountId !== accountId) return false;
       if (product !== "all" && !r.products.includes(product)) return false;
       if ((level === "adset" || level === "ad") && campaignScope.length > 0) {
-        if (!r.campaignId || !campaignScope.includes(r.campaignId)) return false;
+        const campaignRowId = r.campaignId;
+        if (!campaignRowId || !campaignScope.includes(campaignRowId)) return false;
       }
       if (level === "ad" && adsetScope.length > 0) {
-        if (!r.parentId || !adsetScope.includes(r.parentId)) return false;
+        const parentRowId = r.parentId;
+        if (!parentRowId || !adsetScope.includes(parentRowId)) return false;
       }
       if (onlySelected && !selected.has(r.id)) return false;
       return true;
