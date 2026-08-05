@@ -23,6 +23,8 @@ function buildRow(base: {
   budgetCents: number;
   bidCents: number | null;
   parentName: string | null;
+  effectiveStatus: string | null; // veiculação granular da Meta
+  issueReason: string | null; // motivo da restrição
   createdAt: string;
   spend: number;
   revenue: number;
@@ -50,6 +52,8 @@ function buildRow(base: {
     budgetCents: base.budgetCents,
     bidCents: base.bidCents,
     parentName: base.parentName,
+    effectiveStatus: base.effectiveStatus,
+    issueReason: base.issueReason,
     createdAt: base.createdAt,
     pending: base.pending,
     sales: base.approved,
@@ -299,6 +303,8 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
       budgetCents: toBRL(c.budgetCents, cur), // orçamento nível campanha (CBO); 0 = N/A
       bidCents: null,
       parentName: null,
+      effectiveStatus: c.effectiveStatus,
+      issueReason: c.issuesInfo,
       createdAt: c.createdAt.toISOString(),
       spend: toBRL(ins.spend, cur),
       revenue: sl.revenue,
@@ -400,6 +406,7 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
         status: restricted ? "restricted" : "active",
         accountId: acc.id, accountName: acc.name, currency: acc.currency,
         product: null, products: [...a.products], budgetCents: 0, bidCents: null, parentName: null,
+        effectiveStatus: acc.accountStatus, issueReason: null,
         createdAt: acc.createdAt.toISOString(),
         spend: a.spend, revenue: a.revenue, pendingRevenue: a.pendingRevenue,
         approved: a.approved, pending: a.pending, impressions: a.impressions,
@@ -446,7 +453,8 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
         accountId: camp?.adAccountId ?? "", accountName: acc?.name ?? "—", currency: cur,
         product: [...rev.products][0] ?? null, products: [...rev.products],
         budgetCents: toBRL(budget, cur), bidCents: a.bidCents != null ? toBRL(a.bidCents, cur) : null,
-        parentName: camp?.name ?? null, createdAt: a.createdAt.toISOString(),
+        parentName: camp?.name ?? null, effectiveStatus: a.effectiveStatus, issueReason: a.issuesInfo,
+        createdAt: a.createdAt.toISOString(),
         spend: toBRL(a.spendCents, cur), revenue: rev.revenue, pendingRevenue: rev.pendingRevenue,
         approved: rev.approved, pending: rev.pending,
         impressions: a.impressions, clicks: a.clicks, pageViews: a.pageViews, ics: a.initiateCheckouts,
@@ -472,7 +480,9 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
         status: restricted ? "restricted" : a.status,
         accountId: camp?.adAccountId ?? "", accountName: acc?.name ?? "—", currency: cur,
         product: [...rev.products][0] ?? null, products: [...rev.products],
-        budgetCents: 0, bidCents: null, parentName: adset?.name ?? null, createdAt: a.createdAt.toISOString(),
+        budgetCents: 0, bidCents: null, parentName: adset?.name ?? null,
+        effectiveStatus: a.effectiveStatus, issueReason: a.issuesInfo,
+        createdAt: a.createdAt.toISOString(),
         spend: toBRL(a.spendCents, cur), revenue: rev.revenue, pendingRevenue: rev.pendingRevenue,
         approved: rev.approved, pending: rev.pending,
         impressions: a.impressions, clicks: a.clicks, pageViews: a.pageViews, ics: a.initiateCheckouts,

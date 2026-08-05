@@ -255,11 +255,20 @@ export async function getBreakdownInsights(
   }));
 }
 
+// Motivo da restrição (issues_info da Meta) → string legível, ou null.
+type MetaIssue = { error_summary?: string; error_message?: string };
+function issuesReason(issues?: MetaIssue[]): string | null {
+  if (!issues?.length) return null;
+  const txt = issues.map((i) => i.error_summary || i.error_message).filter(Boolean).join(" | ");
+  return txt ? txt.slice(0, 500) : null;
+}
+
 // Entidades (campanha): status + orçamento a nível de campanha (CBO ligado).
 export type CampaignEntity = {
   id: string;
   name: string;
   effectiveStatus: string;
+  issueReason: string | null;
   dailyBudgetCents: number | null; // moeda da conta; null = sem orçamento na campanha (CBO off)
   lifetimeBudgetCents: number | null;
 };
@@ -268,15 +277,17 @@ export async function getCampaignEntities(accountId: string, token: string): Pro
     id: string;
     name: string;
     effective_status: string;
+    issues_info?: MetaIssue[];
     daily_budget?: string;
     lifetime_budget?: string;
   }>(`${accountId}/campaigns`, token, {
-    fields: "id,name,effective_status,daily_budget,lifetime_budget",
+    fields: "id,name,effective_status,issues_info,daily_budget,lifetime_budget",
   });
   return raw.map((c) => ({
     id: c.id,
     name: c.name,
     effectiveStatus: c.effective_status,
+    issueReason: issuesReason(c.issues_info),
     dailyBudgetCents: c.daily_budget != null ? Number(c.daily_budget) : null,
     lifetimeBudgetCents: c.lifetime_budget != null ? Number(c.lifetime_budget) : null,
   }));
@@ -289,6 +300,7 @@ export type AdSetEntity = {
   name: string;
   status: string;
   effectiveStatus: string;
+  issueReason: string | null;
   dailyBudgetCents: number | null;
   lifetimeBudgetCents: number | null;
   bidCents: number | null;
@@ -301,11 +313,12 @@ export async function getAdSets(accountId: string, campaignIds: string[] | null,
     name: string;
     status: string;
     effective_status: string;
+    issues_info?: MetaIssue[];
     daily_budget?: string;
     lifetime_budget?: string;
     bid_amount?: string;
   }>(`${accountId}/adsets`, token, {
-    fields: "id,campaign_id,name,status,effective_status,daily_budget,lifetime_budget,bid_amount",
+    fields: "id,campaign_id,name,status,effective_status,issues_info,daily_budget,lifetime_budget,bid_amount",
     ...campaignFilter(campaignIds ?? undefined),
   });
   return raw.map((a) => ({
@@ -314,6 +327,7 @@ export async function getAdSets(accountId: string, campaignIds: string[] | null,
     name: a.name,
     status: a.status,
     effectiveStatus: a.effective_status,
+    issueReason: issuesReason(a.issues_info),
     dailyBudgetCents: a.daily_budget != null ? Number(a.daily_budget) : null,
     lifetimeBudgetCents: a.lifetime_budget != null ? Number(a.lifetime_budget) : null,
     bidCents: a.bid_amount != null ? Number(a.bid_amount) : null,
@@ -321,12 +335,12 @@ export async function getAdSets(accountId: string, campaignIds: string[] | null,
 }
 
 // Entidades (anúncio): status + conjunto pai.
-export type AdEntity = { id: string; adSetId: string; name: string; status: string; effectiveStatus: string };
+export type AdEntity = { id: string; adSetId: string; name: string; status: string; effectiveStatus: string; issueReason: string | null };
 export async function getAds(accountId: string, campaignIds: string[] | null, token: string): Promise<AdEntity[]> {
-  const raw = await metaGetAll<{ id: string; adset_id?: string; name: string; status: string; effective_status: string }>(
+  const raw = await metaGetAll<{ id: string; adset_id?: string; name: string; status: string; effective_status: string; issues_info?: MetaIssue[] }>(
     `${accountId}/ads`,
     token,
-    { fields: "id,adset_id,name,status,effective_status", ...campaignFilter(campaignIds ?? undefined) },
+    { fields: "id,adset_id,name,status,effective_status,issues_info", ...campaignFilter(campaignIds ?? undefined) },
   );
   return raw.map((a) => ({
     id: a.id,
@@ -334,6 +348,7 @@ export async function getAds(accountId: string, campaignIds: string[] | null, to
     name: a.name,
     status: a.status,
     effectiveStatus: a.effective_status,
+    issueReason: issuesReason(a.issues_info),
   }));
 }
 

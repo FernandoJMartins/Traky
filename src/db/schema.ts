@@ -114,6 +114,8 @@ export const campaigns = pgTable(
     metaCampaignId: text("meta_campaign_id").notNull(), // casa com utm_campaign |id
     name: text("name").notNull(),
     status: campaignStatusEnum("status").notNull().default("active"),
+    effectiveStatus: text("effective_status"), // veiculação granular da Meta (ACTIVE, DISAPPROVED...)
+    issuesInfo: text("issues_info"), // motivo da restrição (se houver)
     budgetCents: integer("budget_cents").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -157,6 +159,7 @@ export const adSets = pgTable(
     name: text("name").notNull(),
     status: campaignStatusEnum("status").notNull().default("active"),
     effectiveStatus: text("effective_status"),
+    issuesInfo: text("issues_info"), // motivo da restrição (se houver)
     dailyBudgetCents: integer("daily_budget_cents").notNull().default(0), // moeda da conta
     lifetimeBudgetCents: integer("lifetime_budget_cents").notNull().default(0),
     bidCents: integer("bid_cents"), // moeda da conta
@@ -188,6 +191,7 @@ export const ads = pgTable(
     name: text("name").notNull(),
     status: campaignStatusEnum("status").notNull().default("active"),
     effectiveStatus: text("effective_status"),
+    issuesInfo: text("issues_info"), // motivo da restrição (se houver)
     spendCents: integer("spend_cents").notNull().default(0), // moeda da conta (snapshot)
     impressions: integer("impressions").notNull().default(0),
     clicks: integer("clicks").notNull().default(0),

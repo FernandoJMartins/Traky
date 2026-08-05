@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import {
   Search, SlidersHorizontal, ArrowUpDown, Check, TrendingUp, Trophy, BarChart3,
-  MoreVertical, Pin, Copy, Play, Pause, CopyPlus, DollarSign, Gauge, Trash2, Filter, X, Pencil,
+  MoreVertical, Pin, Copy, Play, Pause, CopyPlus, DollarSign, Gauge, Trash2, Filter, X, Pencil, AlertTriangle,
 } from "lucide-react";
 
 type Col = {
@@ -38,8 +38,39 @@ const STATUS_CLS: Record<string, string> = {
 // Orçamento: N/A quando 0 (conta = sempre N/A; campanha sem CBO = N/A; conjunto em campanha CBO = N/A).
 const budgetCell = (cents: number) => (cents > 0 ? money(cents) : "N/A");
 
+// Veiculação (effective_status da Meta) → rótulo + cor.
+const DELIVERY_LABELS: Record<string, string> = {
+  ACTIVE: "Ativo", PAUSED: "Pausado", DELETED: "Excluído", ARCHIVED: "Arquivado",
+  PENDING_REVIEW: "Em análise", DISAPPROVED: "Reprovado", PREAPPROVED: "Pré-aprovado",
+  PENDING_BILLING_INFO: "Pgto pendente", CAMPAIGN_PAUSED: "Campanha pausada",
+  ADSET_PAUSED: "Conjunto pausado", IN_PROCESS: "Em processo", WITH_ISSUES: "Com problemas",
+  DISABLED: "Desativada", UNSETTLED: "Pendência financeira",
+};
+const DELIVERY_CLS: Record<string, string> = {
+  ACTIVE: "bg-pos/15 text-pos",
+  DISAPPROVED: "bg-neg/15 text-neg", WITH_ISSUES: "bg-neg/15 text-neg", DISABLED: "bg-neg/15 text-neg",
+  PENDING_REVIEW: "bg-warn/15 text-warn", IN_PROCESS: "bg-warn/15 text-warn",
+  PENDING_BILLING_INFO: "bg-warn/15 text-warn", UNSETTLED: "bg-warn/15 text-warn",
+};
+function DeliveryCell({ status, reason }: { status: string | null; reason: string | null }) {
+  if (!status) return <span className="text-faint">—</span>;
+  const label = DELIVERY_LABELS[status] ?? status;
+  const cls = DELIVERY_CLS[status] ?? "bg-panel-2 text-faint";
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={`text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap ${cls}`}>{label}</span>
+      {reason && (
+        <span title={reason} className="cursor-help">
+          <AlertTriangle size={12} className="text-neg shrink-0" />
+        </span>
+      )}
+    </span>
+  );
+}
+
 const COLUMNS: Col[] = [
   { key: "status", label: "Status", render: (r) => <span className={`text-[11px] px-1.5 py-0.5 rounded ${STATUS_CLS[r.status]}`}>{STATUS_LABEL[r.status]}</span>, value: (r) => r.status },
+  { key: "delivery", label: "Veiculação", render: (r) => <DeliveryCell status={r.effectiveStatus} reason={r.issueReason} />, value: (r) => r.effectiveStatus ?? "" },
   { key: "parent", label: "Pai", render: (r) => r.parentName ?? "—", value: (r) => r.parentName ?? "" },
   { key: "accountName", label: "Conta", render: (r) => r.accountName, value: (r) => r.accountName },
   { key: "product", label: "Produto", render: (r) => r.product ?? "—", value: (r) => r.product ?? "" },
@@ -67,9 +98,10 @@ const COLUMNS: Col[] = [
 const LINE_COLORS = ["#6c8cff", "#26d07c", "#f5b74e", "#a78bfa", "#f0616d", "#22d3ee"];
 const TREND_LABEL = { profit: "Lucro", revenue: "Faturamento", spend: "Gasto" } as const;
 
-const DEFAULT_COLS = ["status", "sales", "pending", "spendCents", "revenueCents", "profitCents", "budgetCents", "roi", "cpaCents", "ctr", "cpcCents", "cpmCents", "impressions", "pageViews", "createdAt"];
+const DEFAULT_COLS = ["status", "delivery", "sales", "pending", "spendCents", "revenueCents", "profitCents", "budgetCents", "roi", "cpaCents", "ctr", "cpcCents", "cpmCents", "impressions", "pageViews", "createdAt"];
 const LS_COLS = "campaignColumns";
 const LS_PINS = "campaignPins";
+const LS_CHARTS = "campaignShowCharts";
 
 type ModalState =
   | null
@@ -100,6 +132,7 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
   const [trendMetric, setTrendMetric] = useState<"profit" | "revenue" | "spend">("profit");
   const [page, setPage] = useState(1);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [showCharts, setShowCharts] = useState(false);
   const PAGE_SIZE = 100;
 
   useEffect(() => {
@@ -107,7 +140,17 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
     if (c) try { setVisible(JSON.parse(c)); } catch {}
     const p = localStorage.getItem(LS_PINS);
     if (p) try { setPinned(new Set(JSON.parse(p))); } catch {}
+    const ch = localStorage.getItem(LS_CHARTS);
+    if (ch !== null) setShowCharts(ch === "1");
   }, []);
+
+  function toggleCharts() {
+    setShowCharts((v) => {
+      const n = !v;
+      localStorage.setItem(LS_CHARTS, n ? "1" : "0");
+      return n;
+    });
+  }
 
   // Trocar de nível limpa a seleção (ids de níveis diferentes não se misturam).
   useEffect(() => { setSelected(new Set()); setOnlySelected(false); }, [level]);
@@ -314,6 +357,12 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
             </button>
           ))}
         </div>
+        {isCampaign && (
+          <label className="flex items-center gap-1.5 text-sm text-muted cursor-pointer select-none">
+            <input type="checkbox" checked={showCharts} onChange={toggleCharts} className="accent-[var(--color-accent)]" />
+            Mostrar gráficos
+          </label>
+        )}
         <p className="text-[11px] text-faint ml-auto">{syncedLabel}</p>
       </div>
 
@@ -363,8 +412,8 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
         </div>
       </div>
 
-      {/* Destaques + comparativo (só nível campanha) */}
-      {isCampaign && (
+      {/* Destaques + comparativo (só nível campanha, se gráficos ligados) */}
+      {isCampaign && showCharts && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <TopList title="Maiores ROI" icon={<TrendingUp size={15} className="text-pos" />} rows={topRoi} metric={(r) => ratio(r.roi)} bar={(r) => r.roi ?? 0} />
         <TopList title="Maiores Lucros" icon={<Trophy size={15} className="text-warn" />} rows={topProfit} metric={(r) => money(r.profitCents)} bar={(r) => r.profitCents} />
@@ -390,8 +439,8 @@ export function CampaignsView({ data }: { data: NonNullable<CampaignsData> }) {
       </div>
       )}
 
-      {/* Evolução diária (7 dias) — só nível campanha */}
-      {isCampaign && (
+      {/* Evolução diária (7 dias) — só nível campanha, se gráficos ligados */}
+      {isCampaign && showCharts && (
       <div className="rounded-xl border border-line bg-panel/70 p-4">
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="text-sm font-medium">
