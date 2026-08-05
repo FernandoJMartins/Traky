@@ -34,7 +34,8 @@ function buildRow(base: {
   pageViews: number;
   ics: number;
 }) {
-  const metaTax = Math.round(base.spend * META_TAX_RATE);
+  // Imposto Meta Ads só em contas BRL — contas gringas (USD/EUR...) não pagam.
+  const metaTax = base.currency === "BRL" ? Math.round(base.spend * META_TAX_RATE) : 0;
   const profit = base.revenue - base.spend - metaTax;
   return {
     id: base.id,
@@ -138,7 +139,11 @@ export async function getSummary(dashboardId: string, filters: SummaryFilters = 
   const initiateCheckouts = insights.reduce((s, i) => s + i.initiateCheckouts, 0);
 
   const productsCost = 0;
-  const metaTax = Math.round(spend * META_TAX_RATE); // imposto Meta Ads (12,5% BRL)
+  // Imposto Meta Ads só em contas BRL — soma só o gasto das contas BRL.
+  const brlAccountIds = new Set(accts.filter((a) => a.currency === "BRL").map((a) => a.id));
+  const brlCampIds = new Set(camps.filter((c) => brlAccountIds.has(c.adAccountId)).map((c) => c.id));
+  const brlSpend = insights.filter((i) => brlCampIds.has(i.campaignId)).reduce((s, i) => s + i.spendCents, 0);
+  const metaTax = Math.round(brlSpend * META_TAX_RATE); // 12,5% só em contas BRL
   const profit = net - spend - metaTax - productsCost;
   const approvedCount = approved.length;
 
@@ -360,7 +365,7 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
     for (const d of days) {
       const s = toBRL(sp?.get(d) ?? 0, cur);
       const r = rv?.get(d) ?? 0;
-      const tax = Math.round(s * META_TAX_RATE);
+      const tax = cur === "BRL" ? Math.round(s * META_TAX_RATE) : 0; // imposto só BRL
       spend.push(s / 100);
       revenue.push(r / 100);
       profit.push((r - s - tax) / 100);
@@ -538,7 +543,11 @@ export async function getDashboardData() {
   const pendingRevenue = pending.reduce((s, v) => s + v.valueCents, 0);
 
   const fees = approved.reduce((s, v) => s + v.gatewayFeeCents, 0); // taxas de gateway
-  const metaTax = Math.round(adSpend * META_TAX_RATE); // imposto Meta Ads (12,5% BRL)
+  // Imposto Meta Ads só em contas BRL — soma só o gasto das contas BRL.
+  const brlAccountIds = new Set(accounts.filter((a) => a.currency === "BRL").map((a) => a.id));
+  const brlCampIds = new Set(camps.filter((c) => brlAccountIds.has(c.adAccountId)).map((c) => c.id));
+  const brlSpend = insights.filter((i) => brlCampIds.has(i.campaignId)).reduce((s, i) => s + i.spendCents, 0);
+  const metaTax = Math.round(brlSpend * META_TAX_RATE); // 12,5% só em contas BRL
   const netRevenue = grossRevenue - fees;
   const profit = netRevenue - adSpend - metaTax;
 
