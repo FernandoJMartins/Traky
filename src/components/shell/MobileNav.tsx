@@ -35,7 +35,7 @@ export function MobileNav() {
                 <X size={18} />
               </button>
             </div>
-            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            <nav className="flex-1 px-3 py-4 space-y-1 z-100 overflow-y-auto">
               {NAV.map(({ label, icon: Icon, href }) => {
                 const active = pathname.startsWith(href);
                 return (
