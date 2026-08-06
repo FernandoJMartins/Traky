@@ -33,9 +33,6 @@ export default async function CampanhasPage({ searchParams }: { searchParams?: P
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Campanhas</h1>
-        <p className="text-sm text-muted">
-          conta → campanha → conjunto → anúncio · percebe na hora quem está no lucro
-        </p>
       </div>
       <CampaignsView
         data={data}

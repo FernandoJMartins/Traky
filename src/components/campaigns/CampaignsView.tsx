@@ -9,7 +9,7 @@ import {
   ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
 import {
-  Search, SlidersHorizontal, ArrowUpDown, Check, TrendingUp, Trophy, BarChart3,
+  Search, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Check, TrendingUp, Trophy, BarChart3,
   MoreVertical, Pin, Copy, Play, Pause, CopyPlus, DollarSign, Gauge, Trash2, Filter, X, Pencil, AlertTriangle,
   Building2,
   Layers3,
@@ -35,11 +35,19 @@ const LEVELS: { k: Level; label: string; icon: LucideIcon }[] = [
   { k: "ad", label: "Anúncios", icon: MousePointerClick },
 ];
 const PARENT_LABEL: Record<Level, string> = { account: "—", campaign: "—", adset: "Campanha", ad: "Conjunto" };
-
-const STATUS_LABEL: Record<string, string> = { active: "Ativo", paused: "Pausado", restricted: "Com restrições" };
-const STATUS_CLS: Record<string, string> = {
-  active: "bg-pos/15 text-pos", paused: "bg-panel-2 text-faint", restricted: "bg-warn/15 text-warn",
+// Subtítulo que muda conforme a aba (nível) selecionada.
+const LEVEL_SUBTITLE: Record<Level, string> = {
+  account: "Visão por conta de anúncios · desempenho consolidado de cada conta",
+  campaign: "conta → campanha → conjunto → anúncio · percebe na hora quem está no lucro",
+  adset: "Visão por conjunto de anúncios · veja qual segmentação está no lucro",
+  ad: "Visão por anúncio · veja qual criativo está no lucro",
 };
+
+// Setinha de ordenação: neutra quando a coluna não é a ordenada; ↑/↓ na coluna ativa.
+function SortIcon({ colKey, sortKey, sortDir }: { colKey: string; sortKey: string; sortDir: "asc" | "desc" }) {
+  if (sortKey !== colKey) return <ArrowUpDown size={12} className="opacity-30" />;
+  return sortDir === "asc" ? <ArrowUp size={12} className="text-accent" /> : <ArrowDown size={12} className="text-accent" />;
+}
 
 // Orçamento: N/A quando 0 (conta = sempre N/A; campanha sem CBO = N/A; conjunto em campanha CBO = N/A).
 const budgetCell = (cents: number) => (cents > 0 ? money(cents) : "N/A");
@@ -76,7 +84,6 @@ function DeliveryCell({ status, reason }: { status: string | null; reason: strin
 }
 
 const COLUMNS: Col[] = [
-  { key: "status", label: "Status", render: (r) => <span className={`text-[11px] px-1.5 py-0.5 rounded ${STATUS_CLS[r.status]}`}>{STATUS_LABEL[r.status]}</span>, value: (r) => r.status },
   { key: "delivery", label: "Veiculação", render: (r) => <DeliveryCell status={r.effectiveStatus} reason={r.issueReason} />, value: (r) => r.effectiveStatus ?? "" },
   { key: "parent", label: "Pai", render: (r) => r.parentName ?? "—", value: (r) => r.parentName ?? "" },
   { key: "accountName", label: "Conta", render: (r) => r.accountName, value: (r) => r.accountName },
@@ -105,7 +112,7 @@ const COLUMNS: Col[] = [
 const LINE_COLORS = ["#6c8cff", "#26d07c", "#f5b74e", "#a78bfa", "#f0616d", "#22d3ee"];
 const TREND_LABEL = { profit: "Lucro", revenue: "Faturamento", spend: "Gasto" } as const;
 
-const DEFAULT_COLS = ["status", "delivery", "sales", "pending", "spendCents", "revenueCents", "profitCents", "budgetCents", "roi", "cpaCents", "ctr", "cpcCents", "cpmCents", "impressions", "pageViews", "createdAt"];
+const DEFAULT_COLS = ["delivery", "sales", "pending", "spendCents", "revenueCents", "profitCents", "budgetCents", "roi", "cpaCents", "ctr", "cpcCents", "cpmCents", "impressions", "pageViews", "createdAt"];
 const LS_COLS = "campaignColumns";
 const LS_PINS = "campaignPins";
 const LS_CHARTS = "campaignShowCharts";
@@ -196,7 +203,12 @@ export function CampaignsView({
 
   useEffect(() => {
     const c = localStorage.getItem(LS_COLS);
-    if (c) try { setVisible(JSON.parse(c)); } catch {}
+    if (c) try {
+      const stored: string[] = JSON.parse(c);
+      // Reincorpora colunas padrão que faltarem (ex.: CPC) — corrige localStorage antigo.
+      const merged = [...stored.filter((k) => COLUMNS.some((col) => col.key === k)), ...DEFAULT_COLS.filter((k) => !stored.includes(k))];
+      setVisible(merged);
+    } catch {}
     const p = localStorage.getItem(LS_PINS);
     if (p) try { setPinned(new Set(JSON.parse(p))); } catch {}
     const ch = localStorage.getItem(LS_CHARTS);
@@ -530,6 +542,9 @@ export function CampaignsView({
 
   return (
     <div className="space-y-4">
+      {/* Subtítulo dinâmico conforme a aba/nível */}
+      <p className="text-sm text-muted -mt-1">{LEVEL_SUBTITLE[level]}</p>
+
       {/* Nível (Sincronizar agora é global, na navbar) */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="grid w-full grid-cols-4 gap-2 rounded-xl border border-line bg-panel p-1 sm:grid-cols-4">
@@ -734,11 +749,11 @@ export function CampaignsView({
               <th className="py-2.5 pl-3 w-8"><input type="checkbox" checked={activeSelected.length > 0 && activeSelected.length === filtered.length} onChange={selectAll} className="accent-[var(--color-accent)]" /></th>
               {canWrite && <th className="py-2.5 px-2 w-12 font-medium text-center">On/Off</th>}
               <th className="py-2.5 px-3 font-medium">
-                <button onClick={() => sortBy("name")} className="flex items-center gap-1 hover:text-text">{LEVELS.find((l) => l.k === level)?.label.replace(/s$/, "")} <ArrowUpDown size={12} /></button>
+                <button onClick={() => sortBy("name")} className="flex items-center gap-1 hover:text-text">{LEVELS.find((l) => l.k === level)?.label.replace(/s$/, "")} <SortIcon colKey="name" sortKey={sortKey} sortDir={sortDir} /></button>
               </th>
               {activeCols.map((c) => (
                 <th key={c.key} className={`py-2.5 px-3 font-medium ${c.numeric ? "text-right" : ""}`}>
-                  <button onClick={() => sortBy(c.key)} className={`flex items-center gap-1 hover:text-text ${c.numeric ? "ml-auto" : ""}`}>{c.key === "parent" ? PARENT_LABEL[level] : c.label} <ArrowUpDown size={12} /></button>
+                  <button onClick={() => sortBy(c.key)} className={`flex items-center gap-1 hover:text-text ${c.numeric ? "ml-auto" : ""}`}>{c.key === "parent" ? PARENT_LABEL[level] : c.label} <SortIcon colKey={c.key} sortKey={sortKey} sortDir={sortDir} /></button>
                 </th>
               ))}
               <th className="py-2.5 px-2 w-8"></th>
