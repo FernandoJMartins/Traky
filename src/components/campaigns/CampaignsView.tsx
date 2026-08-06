@@ -85,10 +85,10 @@ const COLUMNS: Col[] = [
   { key: "sales", label: "Vendas", numeric: true, render: (r) => num(r.sales), value: (r) => r.sales },
   { key: "spendCents", label: "Gastos", numeric: true, render: (r) => money(r.spendCents), value: (r) => r.spendCents },
   { key: "revenueCents", label: "Faturamento", numeric: true, render: (r) => money(r.revenueCents), value: (r) => r.revenueCents },
-  { key: "profitCents", label: "Lucro", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.profitCents >= 0 ? "text-pos" : "text-neg"}`}>{money(r.profitCents)}</span>, value: (r) => r.profitCents },
+  { key: "profitCents", label: "Lucro", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.profitCents > 0 ? "text-pos" : r.profitCents < 0 ? "text-neg" : ""}`}>{money(r.profitCents)}</span>, value: (r) => r.profitCents },
   { key: "budgetCents", label: "Orçamento", numeric: true, render: (r) => budgetCell(r.budgetCents), value: (r) => r.budgetCents },
   { key: "bidCents", label: "Bid Cap", numeric: true, render: (r) => (r.bidCents != null ? money(r.bidCents) : "—"), value: (r) => r.bidCents ?? -Infinity },
-  { key: "roi", label: "ROI", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.roi == null ? "" : r.roi >= 0 ? "text-pos" : "text-neg"}`}>{ratio(r.roi)}</span>, value: (r) => r.roi ?? -Infinity },
+  { key: "roi", label: "ROI", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.roi == null || r.roi === 0 ? "" : r.roi > 0 ? "text-pos" : "text-neg"}`}>{ratio(r.roi)}</span>, value: (r) => r.roi ?? -Infinity },
   { key: "roas", label: "ROAS", numeric: true, render: (r) => multiple(r.roas), value: (r) => r.roas ?? -Infinity },
   { key: "margin", label: "Margem", numeric: true, render: (r) => percent(r.margin), value: (r) => r.margin ?? -Infinity },
   { key: "cpaCents", label: "CPA", numeric: true, render: (r) => (r.cpaCents !== null ? money(r.cpaCents) : "N/A"), value: (r) => r.cpaCents ?? Infinity },
@@ -564,7 +564,7 @@ export function CampaignsView({
           ))}
         </div>
         {syncing && (
-          <span className="text-[11px] text-faint">Sincronizando dados da Meta...</span>
+          <span className="text-[11px] text-muted">Sincronizando dados da Meta...</span>
         )}
         {isCampaign && (
           <label className="flex items-center gap-1.5 text-sm text-muted cursor-pointer select-none">
@@ -572,7 +572,7 @@ export function CampaignsView({
             Mostrar gráficos
           </label>
         )}
-        <p className="text-[11px] text-faint ml-auto">{syncedLabel}</p>
+        <p className="text-[11px] text-muted ml-auto">{syncedLabel}</p>
       </div>
 
       {/* Filtros */}
@@ -733,20 +733,20 @@ export function CampaignsView({
 
       {/* Tabela */}
       <div className="rounded-xl border border-line bg-panel/70 overflow-x-auto">
-        <table className="w-full pb-64 text-sm min-w-[900px]">
+        <table className="w-full pb-64 text-sm min-w-[900px] border-collapse [&_th]:border-line/50 [&_td]:border-line/50 [&_th:not(:last-child)]:border-r [&_td:not(:last-child)]:border-r">
           <thead>
-            <tr className="text-left text-xs text-muted border-b border-line">
-              <th className="py-2.5 pl-3 w-8"><input type="checkbox" checked={activeSelected.length > 0 && activeSelected.length === filtered.length} onChange={selectAll} className="accent-[var(--color-accent)]" /></th>
-              {canWrite && <th className="py-2.5 px-2 w-12 font-medium text-center">On/Off</th>}
-              <th className="py-2.5 px-3 font-medium">
-                <button onClick={() => sortBy("name")} className="flex items-center gap-1 hover:text-text">{LEVELS.find((l) => l.k === level)?.label.replace(/s$/, "")} <SortIcon colKey="name" sortKey={sortKey} sortDir={sortDir} /></button>
+            <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted border-b-2 border-line bg-panel-2/40">
+              <th className="py-3.5 pl-4 pr-2 w-9"><input type="checkbox" checked={activeSelected.length > 0 && activeSelected.length === filtered.length} onChange={selectAll} className="accent-[var(--color-accent)]" /></th>
+              {canWrite && <th className="py-3.5 px-4 w-16 text-center">On/Off</th>}
+              <th className="py-3.5 px-5">
+                <button onClick={() => sortBy("name")} className="flex items-center gap-1.5 hover:text-text">{LEVELS.find((l) => l.k === level)?.label.replace(/s$/, "")} <SortIcon colKey="name" sortKey={sortKey} sortDir={sortDir} /></button>
               </th>
               {activeCols.map((c) => (
-                <th key={c.key} className={`py-2.5 px-3 font-medium ${c.numeric ? "text-right" : ""}`}>
-                  <button onClick={() => sortBy(c.key)} className={`flex items-center gap-1 hover:text-text ${c.numeric ? "ml-auto" : ""}`}>{c.key === "parent" ? PARENT_LABEL[level] : c.label} <SortIcon colKey={c.key} sortKey={sortKey} sortDir={sortDir} /></button>
+                <th key={c.key} className={`py-3.5 px-5 ${c.numeric ? "text-right" : ""}`}>
+                  <button onClick={() => sortBy(c.key)} className={`flex items-center gap-1.5 hover:text-text ${c.numeric ? "ml-auto" : ""}`}>{c.key === "parent" ? PARENT_LABEL[level] : c.label} <SortIcon colKey={c.key} sortKey={sortKey} sortDir={sortDir} /></button>
                 </th>
               ))}
-              <th className="py-2.5 px-2 w-8"></th>
+              <th className="py-3.5 px-3 w-8"></th>
             </tr>
           </thead>
           <tbody>
@@ -761,18 +761,18 @@ export function CampaignsView({
               </tr>
             )}
             {!showSyncLoading && paged.map((r) => (
-              <tr key={r.id} className="border-b border-line/60 hover:bg-panel-2/50">
-                <td className="py-2.5 pl-3"><input type="checkbox" checked={activeSelectedSet.has(r.id)} onChange={() => toggleSelect(r.id)} className="accent-[var(--color-accent)]" /></td>
+              <tr key={r.id} className="border-b border-line/60 text-text hover:bg-panel-2/60">
+                <td className="py-3.5 pl-4 pr-2"><input type="checkbox" checked={activeSelectedSet.has(r.id)} onChange={() => toggleSelect(r.id)} className="accent-[var(--color-accent)]" /></td>
                 {canWrite && (
-                  <td className="py-2.5 px-2 text-center">
+                  <td className="py-3.5 px-4 text-center">
                     <StatusToggle active={r.status === "active"} busy={togglingId === r.id} onToggle={() => quickToggle(r)} />
                   </td>
                 )}
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-2">
+                <td className="py-3.5 px-5">
+                  <div className="flex items-center gap-2.5">
                     {pinned.has(r.id) && <Pin size={12} className="text-accent shrink-0" fill="currentColor" />}
-                    <span className={`size-1.5 rounded-full shrink-0 ${r.status === "active" ? "bg-pos" : r.status === "restricted" ? "bg-warn" : "bg-faint"}`} />
-                    <span className="truncate max-w-[200px]">{r.name}</span>
+                    <span className={`size-2 rounded-full shrink-0 ${r.status === "active" ? "bg-pos" : r.status === "restricted" ? "bg-warn" : "bg-faint"}`} />
+                    <span className="truncate max-w-[240px] font-medium">{r.name}</span>
                   </div>
                 </td>
                 {activeCols.map((c) => {
@@ -781,9 +781,9 @@ export function CampaignsView({
                     content = <EditableCell value={budgetCell(r.budgetCents)} onEdit={() => setModal({ type: "budget", ids: [r.id], names: [r.name] })} />;
                   else if (c.key === "bidCents" && level === "adset" && r.bidCents != null)
                     content = <EditableCell value={money(r.bidCents)} onEdit={() => setModal({ type: "bidcap", ids: [r.id], names: [r.name] })} />;
-                  return <td key={c.key} className={`py-2.5 px-3 tabular ${c.numeric ? "text-right" : ""}`}>{content}</td>;
+                  return <td key={c.key} className={`py-3.5 px-5 tabular whitespace-nowrap ${c.numeric ? "text-right" : ""}`}>{content}</td>;
                 })}
-                <td className="py-2.5 px-2 relative">
+                <td className="py-3.5 px-3 relative">
                   <button onClick={() => setMenuId(menuId === r.id ? null : r.id)} className="grid place-items-center size-7 rounded-lg hover:bg-panel-2 text-muted"><MoreVertical size={16} /></button>
                   {menuId === r.id && (
                     <RowMenu
@@ -816,7 +816,7 @@ export function CampaignsView({
           </tbody>
         </table>
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-xs text-faint">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
         <span>
           {filtered.length} {LEVELS.find((l) => l.k === level)?.label.toLowerCase()} · período e dashboard atuais {busy && "· processando..."}
         </span>
