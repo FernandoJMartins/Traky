@@ -24,8 +24,8 @@ export default async function LandingPage() {
       <header className="sticky top-0 z-20 border-b border-line bg-bg/80 backdrop-blur">
         <div className="max-w-6xl mx-auto flex items-center gap-3 px-5 h-14">
           <div className="flex items-center gap-2">
-            <div className="size-7 rounded-lg bg-accent/20 text-accent grid place-items-center font-bold">U</div>
-            <span className="font-semibold tracking-tight">Utmify</span>
+            <div className="size-7 rounded-lg bg-accent/20 text-accent grid place-items-center font-bold">T</div>
+            <span className="font-semibold tracking-tight">Tracky</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Link href="/login" className="rounded-lg px-4 py-2 text-sm text-muted hover:text-text">Entrar</Link>
@@ -52,7 +52,7 @@ export default async function LandingPage() {
           <Link href="/login" className="rounded-lg border border-line bg-panel px-5 py-3 text-sm hover:bg-panel-2">Já tenho conta</Link>
         </div>
         <div className="mt-4 flex items-center justify-center gap-4 text-xs text-faint">
-          <span className="inline-flex items-center gap-1"><Check size={13} className="text-pos" /> API 1:1 Utmify</span>
+          <span className="inline-flex items-center gap-1"><Check size={13} className="text-pos" /> API 1:1 compatível</span>
           <span className="inline-flex items-center gap-1"><Check size={13} className="text-pos" /> Meta Ads real</span>
           <span className="inline-flex items-center gap-1"><Check size={13} className="text-pos" /> Sem cartão</span>
         </div>
@@ -86,7 +86,7 @@ export default async function LandingPage() {
 
       <footer className="border-t border-line">
         <div className="max-w-6xl mx-auto px-5 py-6 text-xs text-faint flex items-center justify-between">
-          <span>Utmify · rastreamento de vendas</span>
+          <span>Tracky · rastreamento de vendas</span>
           <div className="flex gap-4">
             <Link href="/login" className="hover:text-text">Entrar</Link>
             <Link href="/register" className="hover:text-text">Criar conta</Link>

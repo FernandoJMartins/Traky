@@ -1,6 +1,6 @@
 {
-  "name": "Utmify",
-  "short_name": "Utmify",
+  "name": "Tracky",
+  "short_name": "Tracky",
   "description": "Rastreamento de vendas e atribuição de campanhas.",
   "start_url": "/",
   "display": "standalone",

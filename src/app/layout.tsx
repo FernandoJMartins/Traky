@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Utmify — Rastreamento de Vendas",
+  title: "Tracky — Rastreamento de Vendas",
   description: "Atribuição de vendas por campanha, ROI e lucro em tempo real.",
   manifest: "/manifest.json",
 };

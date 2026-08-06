@@ -41,3 +41,20 @@ export function ruleLimitFor(user: { plan: string; isAdmin: boolean }): number |
   if (user.isAdmin) return null;
   return planById(user.plan).ruleLimit;
 }
+
+/** Limite de credenciais de webhook/API por usuário. null = ilimitado (admin). */
+export function webhookCredentialLimitFor(user: { plan: string; isAdmin: boolean }): number | null {
+  if (user.isAdmin) return null;
+  switch (user.plan) {
+    case "free":
+      return 1;
+    case "premium":
+      return 3;
+    case "advanced":
+      return 10;
+    case "monster":
+      return null;
+    default:
+      return 1;
+  }
+}

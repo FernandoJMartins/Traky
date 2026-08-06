@@ -39,8 +39,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     <div className="min-h-screen bg-bg text-text grid place-items-center px-5">
       <div className="w-full max-w-sm">
         <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="size-8 rounded-lg bg-accent/20 text-accent grid place-items-center font-bold">U</div>
-          <span className="font-semibold tracking-tight text-lg">Utmify</span>
+          <div className="size-8 rounded-lg bg-accent/20 text-accent grid place-items-center font-bold">T</div>
+          <span className="font-semibold tracking-tight text-lg">Tracky</span>
         </Link>
 
         <div className="rounded-2xl border border-line bg-panel/70 p-6">

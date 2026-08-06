@@ -169,8 +169,8 @@ function PreviewCard({ kind, prefs, dashboardName }: { kind: "approved" | "pendi
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-[11px] text-faint">
-          <span className="size-4 rounded bg-accent/20 text-accent grid place-items-center font-bold text-[9px]">U</span>
-          Utmify {prefs.showDashboardName && <span>· {dashboardName}</span>} <span className="ml-auto">agora</span>
+          <span className="size-4 rounded bg-accent/20 text-accent grid place-items-center font-bold text-[9px]">T</span>
+          Tracky {prefs.showDashboardName && <span>· {dashboardName}</span>} <span className="ml-auto">agora</span>
         </div>
         <div className="text-sm font-semibold mt-0.5">{title}</div>
         <div className="text-xs text-muted truncate">{body}</div>

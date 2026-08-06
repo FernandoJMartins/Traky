@@ -32,9 +32,9 @@ export function Sidebar() {
     <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-line bg-panel/40">
       <div className="h-14 flex items-center gap-2 px-5 border-b border-line">
         <div className="size-7 rounded-lg bg-accent/20 text-accent grid place-items-center font-bold">
-          U
+          T
         </div>
-        <span className="font-semibold tracking-tight">Utmify</span>
+        <span className="font-semibold tracking-tight">Tracky</span>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
         {NAV.map(({ label, icon: Icon, href }) => {
