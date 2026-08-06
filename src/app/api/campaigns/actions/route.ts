@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { adAccounts, adSets, campaigns, metaConnections } from "@/db/schema";
+import { adAccounts, adSets, ads, campaigns, metaConnections } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { getCurrentDashboard } from "@/lib/dashboards";
 import { convertBRLCents } from "@/lib/fx";
@@ -11,6 +11,7 @@ import {
   setAdSetBid,
   setAdSetDailyBudget,
   setAdSetStatus,
+  setAdStatus,
   setCampaignDailyBudget,
   setCampaignStatus,
 } from "@/lib/meta";
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 type Body = {
   action: "activate" | "pause" | "budget" | "bidcap" | "delete" | "duplicate";
-  level?: "campaign" | "adset";
+  level?: "campaign" | "adset" | "ad";
   campaignIds: string[]; // ids nossos (campanha ou conjunto conforme level)
   valueBRL?: string; // "30,00"
   copies?: number;
@@ -54,6 +55,45 @@ export async function POST(req: Request) {
   }
 
   const results: { id: string; name: string; ok: boolean; message?: string }[] = [];
+
+  // ---------------- Nível ANÚNCIO (só activate/pause) ----------------
+  if (body.level === "ad") {
+    if (!["activate", "pause"].includes(body.action)) {
+      return NextResponse.json({ message: "Só é possível ativar/pausar anúncios." }, { status: 400 });
+    }
+    const rows = await db.select().from(ads).where(inArray(ads.id, body.campaignIds));
+    const adsetIds = [...new Set(rows.map((r) => r.adSetId))];
+    const sets = adsetIds.length ? await db.select().from(adSets).where(inArray(adSets.id, adsetIds)) : [];
+    const setById = new Map(sets.map((s) => [s.id, s]));
+    const campIds = [...new Set(sets.map((s) => s.campaignId))];
+    const camps = campIds.length ? await db.select().from(campaigns).where(inArray(campaigns.id, campIds)) : [];
+    const campById = new Map(camps.map((c) => [c.id, c]));
+    const accts = await db.select().from(adAccounts).where(inArray(adAccounts.id, [...new Set(camps.map((c) => c.adAccountId))]));
+    const acctById = new Map(accts.map((a) => [a.id, a]));
+    const conns = await db.select().from(metaConnections).where(eq(metaConnections.dashboardId, dashboard.id));
+    const connById = new Map(conns.map((c) => [c.id, c]));
+
+    for (const r of rows) {
+      const set = setById.get(r.adSetId);
+      const camp = set ? campById.get(set.campaignId) : undefined;
+      const acc = camp ? acctById.get(camp.adAccountId) : undefined;
+      const conn = acc?.metaConnectionId ? connById.get(acc.metaConnectionId) : null;
+      if (!acc || !conn) {
+        results.push({ id: r.id, name: r.name, ok: false, message: "Sem conexão Meta." });
+        continue;
+      }
+      try {
+        const next = body.action === "activate" ? "ACTIVE" : "PAUSED";
+        await setAdStatus(r.metaAdId, conn.accessToken, next);
+        await db.update(ads).set({ status: body.action === "activate" ? "active" : "paused" }).where(eq(ads.id, r.id));
+        results.push({ id: r.id, name: r.name, ok: true });
+      } catch (e) {
+        results.push({ id: r.id, name: r.name, ok: false, message: e instanceof MetaApiError ? e.message : e instanceof Error ? e.message : "erro" });
+      }
+    }
+    const okA = results.filter((r) => r.ok).length;
+    return NextResponse.json({ ok: okA > 0, okCount: okA, total: results.length, results });
+  }
 
   // ---------------- Nível CONJUNTO (activate/pause/budget) ----------------
   if (body.level === "adset") {

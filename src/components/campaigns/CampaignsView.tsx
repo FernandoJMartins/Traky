@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { CampaignsData, CampaignRow } from "@/lib/queries";
 import { money, percent, multiple, num, ratio } from "@/lib/format";
@@ -172,7 +172,9 @@ export function CampaignsView({
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showCharts, setShowCharts] = useState(false);
   const PAGE_SIZE = 100;
-  const lastAutoSyncRef = useRef<string | null>(null);
+  // Chaves de período+nível já sincronizadas nesta sessão (gate anti-flash, derivado no render).
+  const [syncedKeys, setSyncedKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const syncKey = `${currentPeriodKey}:${currentPeriodFrom ?? ""}:${currentPeriodTo ?? ""}:${level}`;
 
   function unique(values: string[]) {
     return [...new Set(values.filter(Boolean))];
@@ -240,9 +242,7 @@ export function CampaignsView({
 
   useEffect(() => {
     if (level === "campaign") return;
-    const syncKey = `${currentPeriodKey}:${currentPeriodFrom ?? ""}:${currentPeriodTo ?? ""}:${level}`;
-    if (lastAutoSyncRef.current === syncKey) return;
-    lastAutoSyncRef.current = syncKey;
+    if (syncedKeys.has(syncKey)) return;
     let alive = true;
     setSyncing(true);
     (async () => {
@@ -259,15 +259,19 @@ export function CampaignsView({
         if (!res.ok) throw new Error(payload.message ?? "Falha");
         if (alive) router.refresh();
       } catch {
-        if (alive) lastAutoSyncRef.current = null;
+        // deixa passar; ainda marca como sincronizado pra não travar em "Carregando".
       } finally {
-        if (alive) setSyncing(false);
+        // Marca período+nível como sincronizado: libera a exibição (sem flash de dados antigos).
+        if (alive) {
+          setSyncedKeys((prev) => new Set(prev).add(syncKey));
+          setSyncing(false);
+        }
       }
     })();
     return () => {
       alive = false;
     };
-  }, [currentPeriodKey, currentPeriodFrom, currentPeriodTo, level, router]);
+  }, [syncKey, currentPeriodKey, currentPeriodFrom, currentPeriodTo, level, router, syncedKeys]);
 
   function saveCols(next: string[]) {
     localStorage.setItem(LS_COLS, JSON.stringify(next));
@@ -330,9 +334,13 @@ export function CampaignsView({
     return [...rows].sort((a, b) => a.name.localeCompare(b.name));
   }, [data.adRows, campaignScope, adsetScope]);
 
-  const canWrite = level === "campaign" || level === "adset";
+  const canWrite = level === "campaign" || level === "adset" || level === "ad";
+  const canBudget = level === "campaign" || level === "adset";
   const fullActions = level === "campaign";
   const isCampaign = level === "campaign";
+  // Anti-"flash": em conjuntos/anúncios não mostra o snapshot antigo enquanto o
+  // período atual ainda não foi sincronizado nesta sessão — mostra "Carregando".
+  const showSyncLoading = (level === "adset" || level === "ad") && !syncedKeys.has(syncKey);
 
   const filtered = useMemo(() => {
     let rows = levelRows.filter((r) => {
@@ -710,7 +718,7 @@ export function CampaignsView({
               <BulkBtn onClick={() => metaWrite("ativar", [...activeSelected])} cls="bg-pos/20 text-pos hover:bg-pos/30" icon={<Play size={14} />}>Ativar</BulkBtn>
               <BulkBtn onClick={() => metaWrite("pausar", [...activeSelected])} cls="bg-warn/20 text-warn hover:bg-warn/30" icon={<Pause size={14} />}>Pausar</BulkBtn>
               {fullActions && <BulkBtn onClick={() => setModal({ type: "duplicate", ids: [...activeSelected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<CopyPlus size={14} />}>Duplicar</BulkBtn>}
-              <BulkBtn onClick={() => setModal({ type: "budget", ids: [...activeSelected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<DollarSign size={14} />}>Orçamento</BulkBtn>
+              {canBudget && <BulkBtn onClick={() => setModal({ type: "budget", ids: [...activeSelected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<DollarSign size={14} />}>Orçamento</BulkBtn>}
               {level === "adset" && <BulkBtn onClick={() => setModal({ type: "bidcap", ids: [...activeSelected], names: [] })} cls="bg-panel-2 hover:bg-panel" icon={<Gauge size={14} />}>Bid Cap</BulkBtn>}
               {fullActions && <BulkBtn onClick={() => askDelete([...activeSelected])} cls="bg-neg/20 text-neg hover:bg-neg/30" icon={<Trash2 size={14} />}>Excluir</BulkBtn>}
             </div>
@@ -737,7 +745,17 @@ export function CampaignsView({
             </tr>
           </thead>
           <tbody>
-            {paged.map((r) => (
+            {showSyncLoading && (
+              <tr>
+                <td colSpan={activeCols.length + 3 + (canWrite ? 1 : 0)} className="py-16 text-center text-faint">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="size-4 rounded-full border-2 border-line border-t-accent animate-spin" />
+                    Carregando {level === "adset" ? "conjuntos" : "anúncios"} do período...
+                  </span>
+                </td>
+              </tr>
+            )}
+            {!showSyncLoading && paged.map((r) => (
               <tr key={r.id} className="border-b border-line/60 hover:bg-panel-2/50">
                 <td className="py-2.5 pl-3"><input type="checkbox" checked={activeSelectedSet.has(r.id)} onChange={() => toggleSelect(r.id)} className="accent-[var(--color-accent)]" /></td>
                 {canWrite && (
@@ -767,6 +785,7 @@ export function CampaignsView({
                       pinned={pinned.has(r.id)}
                       canWrite={canWrite}
                       fullActions={fullActions}
+                      showBudget={canBudget}
                       showBidcap={level === "adset"}
                       onClose={() => setMenuId(null)}
                       onCopyId={() => copyId(r.metaCampaignId)}
@@ -782,7 +801,7 @@ export function CampaignsView({
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {!showSyncLoading && filtered.length === 0 && (
               <tr><td colSpan={activeCols.length + 3 + (canWrite ? 1 : 0)} className="py-10 text-center text-faint">
                 {level === "adset" || level === "ad"
                   ? "Nada aqui. Clique em Sincronizar pra puxar da Meta."
@@ -866,7 +885,7 @@ function BulkBtn({ children, onClick, cls, icon }: { children: React.ReactNode; 
 }
 
 function RowMenu(props: {
-  pinned: boolean; canWrite: boolean; fullActions: boolean; showBidcap: boolean; onClose: () => void;
+  pinned: boolean; canWrite: boolean; fullActions: boolean; showBudget: boolean; showBidcap: boolean; onClose: () => void;
   onCopyId: () => void; onPin: () => void; onActivate: () => void; onPause: () => void;
   onDuplicate: () => void; onBudget: () => void; onBidcap: () => void; onDelete: () => void;
 }) {
@@ -879,7 +898,7 @@ function RowMenu(props: {
           { icon: <Play size={14} />, label: "Ativar", onClick: props.onActivate },
           { icon: <Pause size={14} />, label: "Desativar", onClick: props.onPause },
           ...(props.fullActions ? [{ icon: <CopyPlus size={14} />, label: "Duplicar", onClick: props.onDuplicate }] : []),
-          { icon: <DollarSign size={14} />, label: "Alterar orçamento", onClick: props.onBudget },
+          ...(props.showBudget ? [{ icon: <DollarSign size={14} />, label: "Alterar orçamento", onClick: props.onBudget }] : []),
           ...(props.showBidcap ? [{ icon: <Gauge size={14} />, label: "Alterar bid cap", onClick: props.onBidcap }] : []),
           ...(props.fullActions
             ? [{ sep: true }, { icon: <Trash2 size={14} />, label: "Excluir", onClick: props.onDelete, danger: true }]

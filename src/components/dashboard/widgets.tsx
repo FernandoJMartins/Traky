@@ -15,7 +15,8 @@ export function Funnel({ steps }: { steps: { label: string; value: number }[] })
         {steps.map((s, i) => {
           const topW = widths[i];
           const topValue = steps[0]?.value || 1;
-          const percentage = (s.value / topValue) * 100;
+          // Cada passo do funil no máximo 100% (nunca "sobe" acima do topo).
+          const percentage = Math.min((s.value / topValue) * 100, 100);
           const botW = widths[i + 1] ?? topW * 0.7; // última faixa afunila até a "boca"
           const tl = (100 - topW) / 2, tr = (100 + topW) / 2;
           const bl = (100 - botW) / 2, br = (100 + botW) / 2;
@@ -39,7 +40,7 @@ export function Funnel({ steps }: { steps: { label: string; value: number }[] })
       <ul className="mt-3 space-y-1.5">
         {steps.map((s, i) => {
           const prev = i > 0 ? steps[i - 1].value : s.value;
-          const rate = prev > 0 ? s.value / prev : 0;
+          const rate = prev > 0 ? Math.min(s.value / prev, 1) : 0;
           return (
             <li key={s.label} className="flex items-center gap-2 text-xs">
               <span className="size-2.5 rounded-full shrink-0" style={{ background: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }} />
