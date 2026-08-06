@@ -271,6 +271,7 @@ export type CampaignEntity = {
   issueReason: string | null;
   dailyBudgetCents: number | null; // moeda da conta; null = sem orçamento na campanha (CBO off)
   lifetimeBudgetCents: number | null;
+  metaCreatedAt: Date | null;
 };
 export async function getCampaignEntities(accountId: string, token: string): Promise<CampaignEntity[]> {
   const raw = await metaGetAll<{
@@ -280,8 +281,9 @@ export async function getCampaignEntities(accountId: string, token: string): Pro
     issues_info?: MetaIssue[];
     daily_budget?: string;
     lifetime_budget?: string;
+    created_time?: string;
   }>(`${accountId}/campaigns`, token, {
-    fields: "id,name,effective_status,issues_info,daily_budget,lifetime_budget",
+    fields: "id,name,effective_status,issues_info,daily_budget,lifetime_budget,created_time",
   });
   return raw.map((c) => ({
     id: c.id,
@@ -290,6 +292,7 @@ export async function getCampaignEntities(accountId: string, token: string): Pro
     issueReason: issuesReason(c.issues_info),
     dailyBudgetCents: c.daily_budget != null ? Number(c.daily_budget) : null,
     lifetimeBudgetCents: c.lifetime_budget != null ? Number(c.lifetime_budget) : null,
+    metaCreatedAt: c.created_time ? new Date(c.created_time) : null,
   }));
 }
 
@@ -304,6 +307,7 @@ export type AdSetEntity = {
   dailyBudgetCents: number | null;
   lifetimeBudgetCents: number | null;
   bidCents: number | null;
+  metaCreatedAt: Date | null;
 };
 
 export async function getAdSets(accountId: string, campaignIds: string[] | null, token: string): Promise<AdSetEntity[]> {
@@ -317,8 +321,9 @@ export async function getAdSets(accountId: string, campaignIds: string[] | null,
     daily_budget?: string;
     lifetime_budget?: string;
     bid_amount?: string;
+    created_time?: string;
   }>(`${accountId}/adsets`, token, {
-    fields: "id,campaign_id,name,status,effective_status,issues_info,daily_budget,lifetime_budget,bid_amount",
+    fields: "id,campaign_id,name,status,effective_status,issues_info,daily_budget,lifetime_budget,bid_amount,created_time",
     ...campaignFilter(campaignIds ?? undefined),
   });
   return raw.map((a) => ({
@@ -331,16 +336,17 @@ export async function getAdSets(accountId: string, campaignIds: string[] | null,
     dailyBudgetCents: a.daily_budget != null ? Number(a.daily_budget) : null,
     lifetimeBudgetCents: a.lifetime_budget != null ? Number(a.lifetime_budget) : null,
     bidCents: a.bid_amount != null ? Number(a.bid_amount) : null,
+    metaCreatedAt: a.created_time ? new Date(a.created_time) : null,
   }));
 }
 
 // Entidades (anúncio): status + conjunto pai.
-export type AdEntity = { id: string; adSetId: string; name: string; status: string; effectiveStatus: string; issueReason: string | null };
+export type AdEntity = { id: string; adSetId: string; name: string; status: string; effectiveStatus: string; issueReason: string | null; metaCreatedAt: Date | null };
 export async function getAds(accountId: string, campaignIds: string[] | null, token: string): Promise<AdEntity[]> {
-  const raw = await metaGetAll<{ id: string; adset_id?: string; name: string; status: string; effective_status: string; issues_info?: MetaIssue[] }>(
+  const raw = await metaGetAll<{ id: string; adset_id?: string; name: string; status: string; effective_status: string; issues_info?: MetaIssue[]; created_time?: string }>(
     `${accountId}/ads`,
     token,
-    { fields: "id,adset_id,name,status,effective_status,issues_info", ...campaignFilter(campaignIds ?? undefined) },
+    { fields: "id,adset_id,name,status,effective_status,issues_info,created_time", ...campaignFilter(campaignIds ?? undefined) },
   );
   return raw.map((a) => ({
     id: a.id,
@@ -349,6 +355,7 @@ export async function getAds(accountId: string, campaignIds: string[] | null, to
     status: a.status,
     effectiveStatus: a.effective_status,
     issueReason: issuesReason(a.issues_info),
+    metaCreatedAt: a.created_time ? new Date(a.created_time) : null,
   }));
 }
 

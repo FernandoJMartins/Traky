@@ -313,7 +313,7 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
       parentName: null,
       effectiveStatus: c.effectiveStatus,
       issueReason: c.issuesInfo,
-      createdAt: c.createdAt.toISOString(),
+      createdAt: (c.metaCreatedAt ?? c.createdAt).toISOString(),
       spend: toBRL(ins.spend, cur),
       revenue: sl.revenue,
       pendingRevenue: sl.pendingRevenue,
@@ -391,7 +391,14 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
   // apareciam todas as campanhas de todas as contas mesmo sem nenhum dado.
   const hasActivity = (r: { spendCents: number; sales: number; pending: number }) =>
     r.spendCents > 0 || r.sales > 0 || r.pending > 0;
-  const rowsWithActivity = rows.filter(hasActivity);
+  // Também mostra entidades CRIADAS no período (mesmo sem gasto) — ex.: anúncios
+  // recém-criados/rejeitados de hoje aparecem ao filtrar por Hoje.
+  // Só faz sentido em período com limites (Hoje, Ontem, ranges...). No "Máximo"
+  // (sem from/to) mantém o filtro antigo de atividade pra não inundar a lista.
+  const inPeriod = (d: Date | null | undefined) =>
+    !!d && (from != null || to != null) && (!from || d >= from) && (!to || d <= to);
+  const campCreatedIn = new Set(camps.filter((c) => inPeriod(c.metaCreatedAt)).map((c) => c.id));
+  const rowsWithActivity = rows.filter((r) => hasActivity(r) || campCreatedIn.has(r.id));
 
   // ---------- Nível CONTA (agrega as campanhas por conta; orçamento = N/A) ----------
   type Agg = { spend: number; revenue: number; pendingRevenue: number; approved: number; pending: number; impressions: number; clicks: number; pageViews: number; ics: number; products: Set<string> };
@@ -448,6 +455,7 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
     ? await db.select().from(adSets).where(inArray(adSets.campaignId, campIds))
     : [];
   const adsetById = new Map(adsetRowsDb.map((a) => [a.id, a]));
+  const adsetCreatedIn = new Set(adsetRowsDb.filter((a) => inPeriod(a.metaCreatedAt)).map((a) => a.id));
   let lastSync: Date | null = null;
   const adsetRows = adsetRowsDb
     .map((a) => {
@@ -468,19 +476,20 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
         product: [...rev.products][0] ?? null, products: [...rev.products],
         budgetCents: toBRL(budget, cur), bidCents: a.bidCents != null ? toBRL(a.bidCents, cur) : null,
         parentName: camp?.name ?? null, effectiveStatus: a.effectiveStatus, issueReason: a.issuesInfo,
-        createdAt: a.createdAt.toISOString(),
+        createdAt: (a.metaCreatedAt ?? a.createdAt).toISOString(),
         spend: toBRL(a.spendCents, cur), revenue: rev.revenue, pendingRevenue: rev.pendingRevenue,
         approved: rev.approved, pending: rev.pending,
         impressions: a.impressions, clicks: a.clicks, pageViews: a.pageViews, ics: a.initiateCheckouts,
       });
     })
-    .filter(hasActivity);
+    .filter((r) => hasActivity(r) || adsetCreatedIn.has(r.id));
 
   // ---------- Nível ANÚNCIO ----------
   const adsetIds = adsetRowsDb.map((a) => a.id);
   const adRowsDb = adsetIds.length
     ? await db.select().from(ads).where(inArray(ads.adSetId, adsetIds))
     : [];
+  const adCreatedIn = new Set(adRowsDb.filter((a) => inPeriod(a.metaCreatedAt)).map((a) => a.id));
   const adRows = adRowsDb
     .map((a) => {
       const adset = adsetById.get(a.adSetId);
@@ -499,13 +508,13 @@ export async function getCampaignsData(opts?: { dashboardId?: string; from?: Dat
         product: [...rev.products][0] ?? null, products: [...rev.products],
         budgetCents: 0, bidCents: null, parentName: adset?.name ?? null,
         effectiveStatus: a.effectiveStatus, issueReason: a.issuesInfo,
-        createdAt: a.createdAt.toISOString(),
+        createdAt: (a.metaCreatedAt ?? a.createdAt).toISOString(),
         spend: toBRL(a.spendCents, cur), revenue: rev.revenue, pendingRevenue: rev.pendingRevenue,
         approved: rev.approved, pending: rev.pending,
         impressions: a.impressions, clicks: a.clicks, pageViews: a.pageViews, ics: a.initiateCheckouts,
       });
     })
-    .filter(hasActivity);
+    .filter((r) => hasActivity(r) || adCreatedIn.has(r.id));
 
   return {
     accounts: accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency })),

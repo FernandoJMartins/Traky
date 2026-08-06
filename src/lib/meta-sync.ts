@@ -231,10 +231,10 @@ export async function syncCampaignsFull(
         const budget = ent ? ent.dailyBudgetCents ?? ent.lifetimeBudgetCents ?? 0 : 0;
         const [c] = await db
           .insert(campaigns)
-          .values({ adAccountId: acc.id, metaCampaignId: metaCampId, name, status: st(ent?.effectiveStatus), effectiveStatus: ent?.effectiveStatus ?? null, issuesInfo: ent?.issueReason ?? null, budgetCents: budget })
+          .values({ adAccountId: acc.id, metaCampaignId: metaCampId, name, status: st(ent?.effectiveStatus), effectiveStatus: ent?.effectiveStatus ?? null, issuesInfo: ent?.issueReason ?? null, budgetCents: budget, metaCreatedAt: ent?.metaCreatedAt ?? null })
           .onConflictDoUpdate({
             target: [campaigns.adAccountId, campaigns.metaCampaignId],
-            set: { name, status: st(ent?.effectiveStatus), effectiveStatus: ent?.effectiveStatus ?? null, issuesInfo: ent?.issueReason ?? null, budgetCents: budget },
+            set: { name, status: st(ent?.effectiveStatus), effectiveStatus: ent?.effectiveStatus ?? null, issuesInfo: ent?.issueReason ?? null, budgetCents: budget, ...(ent?.metaCreatedAt ? { metaCreatedAt: ent.metaCreatedAt } : {}) },
           })
           .returning({ id: campaigns.id });
         campMap.set(metaCampId, c.id);
@@ -274,6 +274,7 @@ export async function syncCampaignsFull(
             campaignId, metaAdSetId: a.id, name: a.name, status: st(a.effectiveStatus), effectiveStatus: a.effectiveStatus, issuesInfo: a.issueReason ?? null,
             dailyBudgetCents: a.dailyBudgetCents ?? 0, lifetimeBudgetCents: a.lifetimeBudgetCents ?? 0, bidCents: a.bidCents ?? null,
             spendCents: ins?.spendCents ?? 0, impressions: ins?.impressions ?? 0, clicks: ins?.clicks ?? 0, pageViews: ins?.pageViews ?? 0, initiateCheckouts: ins?.initiateCheckouts ?? 0, syncedAt: now,
+            metaCreatedAt: a.metaCreatedAt ?? null,
           })
           .onConflictDoUpdate({
             target: [adSets.campaignId, adSets.metaAdSetId],
@@ -281,6 +282,7 @@ export async function syncCampaignsFull(
               name: a.name, status: st(a.effectiveStatus), effectiveStatus: a.effectiveStatus, issuesInfo: a.issueReason ?? null,
               dailyBudgetCents: a.dailyBudgetCents ?? 0, lifetimeBudgetCents: a.lifetimeBudgetCents ?? 0, bidCents: a.bidCents ?? null,
               spendCents: ins?.spendCents ?? 0, impressions: ins?.impressions ?? 0, clicks: ins?.clicks ?? 0, pageViews: ins?.pageViews ?? 0, initiateCheckouts: ins?.initiateCheckouts ?? 0, syncedAt: now,
+              ...(a.metaCreatedAt ? { metaCreatedAt: a.metaCreatedAt } : {}),
             },
           })
           .returning({ id: adSets.id });
@@ -299,12 +301,14 @@ export async function syncCampaignsFull(
           .values({
             adSetId, metaAdId: a.id, name: a.name, status: st(a.effectiveStatus), effectiveStatus: a.effectiveStatus, issuesInfo: a.issueReason ?? null,
             spendCents: ins?.spendCents ?? 0, impressions: ins?.impressions ?? 0, clicks: ins?.clicks ?? 0, pageViews: ins?.pageViews ?? 0, initiateCheckouts: ins?.initiateCheckouts ?? 0, syncedAt: now,
+            metaCreatedAt: a.metaCreatedAt ?? null,
           })
           .onConflictDoUpdate({
             target: [ads.adSetId, ads.metaAdId],
             set: {
               name: a.name, status: st(a.effectiveStatus), effectiveStatus: a.effectiveStatus, issuesInfo: a.issueReason ?? null,
               spendCents: ins?.spendCents ?? 0, impressions: ins?.impressions ?? 0, clicks: ins?.clicks ?? 0, pageViews: ins?.pageViews ?? 0, initiateCheckouts: ins?.initiateCheckouts ?? 0, syncedAt: now,
+              ...(a.metaCreatedAt ? { metaCreatedAt: a.metaCreatedAt } : {}),
             },
           });
         adsUpserted++;

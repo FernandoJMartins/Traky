@@ -117,6 +117,7 @@ export const campaigns = pgTable(
     effectiveStatus: text("effective_status"), // veiculação granular da Meta (ACTIVE, DISAPPROVED...)
     issuesInfo: text("issues_info"), // motivo da restrição (se houver)
     budgetCents: integer("budget_cents").notNull().default(0),
+    metaCreatedAt: timestamp("meta_created_at", { withTimezone: true }), // created_time da Meta
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -170,6 +171,7 @@ export const adSets = pgTable(
     pageViews: integer("page_views").notNull().default(0),
     initiateCheckouts: integer("initiate_checkouts").notNull().default(0),
     syncedAt: timestamp("synced_at", { withTimezone: true }),
+    metaCreatedAt: timestamp("meta_created_at", { withTimezone: true }), // created_time da Meta
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -198,6 +200,7 @@ export const ads = pgTable(
     pageViews: integer("page_views").notNull().default(0),
     initiateCheckouts: integer("initiate_checkouts").notNull().default(0),
     syncedAt: timestamp("synced_at", { withTimezone: true }),
+    metaCreatedAt: timestamp("meta_created_at", { withTimezone: true }), // created_time da Meta
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
