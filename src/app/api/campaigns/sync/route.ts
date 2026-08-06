@@ -1,34 +1,46 @@
 import { NextResponse } from "next/server";
 import { getCurrentDashboard } from "@/lib/dashboards";
+import { getCurrentPeriod } from "@/lib/period";
 import { syncCampaignsFull } from "@/lib/meta-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// POST /api/campaigns/sync { days? } | { from, to }
-// Botão "Sincronizar": puxa da Meta (campanhas/conjuntos/anúncios + gasto) e grava no banco.
+const dstr = (d: Date) => d.toISOString().slice(0, 10);
+
+// POST /api/campaigns/sync
+// Botão "Sincronizar" (= "Atualizar"): puxa da Meta e grava no banco, usando o
+// PERÍODO ATUAL selecionado (default Hoje). Assim conjuntos/anúncios refletem o período.
 // É a ÚNICA porta que toca a Meta a partir da tela de campanhas.
 export async function POST(req: Request) {
   const dashboard = await getCurrentDashboard();
   if (!dashboard) return NextResponse.json({ message: "Sem dashboard." }, { status: 400 });
 
-  let days = 30;
-  let from: string | undefined;
-  let to: string | undefined;
+  // Permite override manual via body { days } ou { from, to }; senão usa o período atual.
+  let bodyFrom: string | undefined;
+  let bodyTo: string | undefined;
+  let bodyDays: number | undefined;
   try {
     const body = await req.json();
-    if (typeof body?.from === "string" && typeof body?.to === "string") {
-      from = body.from;
-      to = body.to;
-    } else if (typeof body?.days === "number" && body.days > 0 && body.days <= 90) {
-      days = Math.floor(body.days);
-    }
+    if (typeof body?.from === "string" && typeof body?.to === "string") { bodyFrom = body.from; bodyTo = body.to; }
+    else if (typeof body?.days === "number" && body.days > 0 && body.days <= 90) bodyDays = Math.floor(body.days);
   } catch {
-    /* usa 30 */
+    /* usa período atual */
   }
 
   try {
-    const res = from && to ? await syncCampaignsFull(dashboard.id, { from, to }) : await syncCampaignsFull(dashboard.id, days);
+    let res;
+    if (bodyFrom && bodyTo) {
+      res = await syncCampaignsFull(dashboard.id, { from: bodyFrom, to: bodyTo });
+    } else if (bodyDays) {
+      res = await syncCampaignsFull(dashboard.id, bodyDays);
+    } else {
+      // período atual (default Hoje). "Máximo" (sem from/to) → 90 dias.
+      const { from, to } = await getCurrentPeriod();
+      res = from && to
+        ? await syncCampaignsFull(dashboard.id, { from: dstr(from), to: dstr(to) })
+        : await syncCampaignsFull(dashboard.id, 90);
+    }
     return NextResponse.json({ ok: true, ...res });
   } catch (e) {
     return NextResponse.json(

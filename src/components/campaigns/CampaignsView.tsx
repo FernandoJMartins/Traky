@@ -16,6 +16,7 @@ import {
   Mouse,
   MousePointerClick,
   FolderKanban,
+  LucideIcon,
 } from "lucide-react";
 
 type Col = {
@@ -27,7 +28,7 @@ type Col = {
 };
 
 type Level = "account" | "campaign" | "adset" | "ad";
-const LEVELS: { k: Level; label: string; icon: React.ComponentType }[] = [
+const LEVELS: { k: Level; label: string; icon: LucideIcon }[] = [
   { k: "account", label: "Contas", icon: Building2 },
   { k: "campaign", label: "Campanhas", icon: FolderKanban },
   { k: "adset", label: "Conjuntos", icon: Layers3 },
