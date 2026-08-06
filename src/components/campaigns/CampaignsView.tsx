@@ -530,7 +530,7 @@ export function CampaignsView({
                 (l.k === "campaign" && selectedCampaigns.length > 0) ||
                 (l.k === "adset" && selectedAdsets.length > 0) ||
                 (l.k === "ad" && selectedAds.length > 0)) && (
-                <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-bg/15 px-2 py-0.5 text-xs font-semibold tabular-nums text-bg">
+                <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-black text-white px-2 py-0.5 text-xs font-semibold tabular-nums text-bg">
                   {l.k === "account"
                     ? selectedAccounts.length
                     : l.k === "campaign"
