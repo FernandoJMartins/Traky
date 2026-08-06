@@ -14,7 +14,7 @@ import {
   Trophy,
 } from "lucide-react";
 
-const NAV = [
+export const NAV = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Campanhas", icon: Megaphone, href: "/campanhas" },
   { label: "Regras", icon: Zap, href: "/regras" },

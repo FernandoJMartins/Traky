@@ -82,23 +82,25 @@ export default async function DashboardPage() {
         <KpiCard label="Vendas Aprovadas" value={String(kpis.salesCount)} tone="pos" />
       </div>
 
-      {/* ---- Gráfico principal + funil + aprovação ---- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        <Card
-          className="lg:col-span-2"
-          title="Lucro por Horário"
-          subtitle="Faturamento × Investimento × Lucro por hora (acumulado)"
-        >
-          <HourlyAccumChart data={data.hourlyAccum} />
+      {/* ---- Gráfico principal (largura total) ---- */}
+      <Card
+        title="Lucro por Horário"
+        subtitle="Faturamento × Investimento × Lucro por hora (acumulado)"
+      >
+        <HourlyAccumChart data={data.hourlyAccum} />
+      </Card>
+
+      {/* ---- Aprovação · Funil · Pagamento ---- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card title="Taxa de Aprovação">
+          <ApprovalRates rows={data.approvalByMethod} />
         </Card>
-        <div className="space-y-4">
-          <Card title="Taxa de Aprovação">
-            <ApprovalRates rows={data.approvalByMethod} />
-          </Card>
-          <Card title="Funil de Conversão" subtitle="Meta Ads">
-            <Funnel steps={data.funnel} />
-          </Card>
-        </div>
+        <Card title="Funil de Conversão" subtitle="Meta Ads">
+          <Funnel steps={data.funnel} />
+        </Card>
+        <Card title="Vendas por Pagamento">
+          <DonutChart data={data.byPayment} />
+        </Card>
       </div>
 
       {/* ---- Distribuições ---- */}
@@ -109,18 +111,6 @@ export default async function DashboardPage() {
         <Card title="Vendas por Horário" action={<Clock size={15} className="text-faint" />}>
           <SimpleBar data={data.salesByHour} xKey="hour" yKey="vendas" color="#6c8cff" />
         </Card>
-        <Card title="Vendas por Pagamento">
-          <DonutChart data={data.byPayment} />
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card title="Vendas por Fonte">
-          <BarList items={data.bySource} />
-        </Card>
-        <Card title="Vendas por Produto">
-          <BarList items={data.byProduct} />
-        </Card>
         <Card title="Resumo Financeiro">
           <div className="space-y-2">
             <MiniStat label="Faturamento Bruto" value={money(kpis.grossRevenue)} />
@@ -129,6 +119,16 @@ export default async function DashboardPage() {
             <MiniStat label="Taxas" value={money(kpis.fees)} />
             <MiniStat label="Lucro Final" value={money(kpis.profit)} />
           </div>
+        </Card>
+      </div>
+
+      {/* ---- Fonte · Produto ---- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card title="Vendas por Fonte">
+          <BarList items={data.bySource} />
+        </Card>
+        <Card title="Vendas por Produto">
+          <BarList items={data.byProduct} />
         </Card>
       </div>
     </div>

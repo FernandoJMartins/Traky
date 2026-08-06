@@ -48,7 +48,7 @@ export function HourlyAccumChart({
   data: { hour: string; faturamento: number; investimento: number; lucro: number }[];
 }) {
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={300}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
         <defs>
           <linearGradient id="gFat" x1="0" y1="0" x2="0" y2="1">

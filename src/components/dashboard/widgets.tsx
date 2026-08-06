@@ -1,34 +1,53 @@
 import { money, percent } from "@/lib/format";
 
-// ---- Funil de conversão (Meta Ads) — formato de funil de verdade ----
+// ---- Funil de conversão (Meta Ads) — trapézios conectados = funil de verdade ----
 const FUNNEL_COLORS = ["#6c8cff", "#7c7bf0", "#9370e6", "#a86fd8", "#a78bfa"];
 export function Funnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Largura relativa ao MAIOR passo (evita estouro quando o topo é 0 e passos
-  // seguintes são maiores — ex: sem dados da Meta, só vendas do nosso banco).
-  const top = Math.max(...steps.map((s) => s.value), 1);
+  // Largura relativa ao MAIOR passo (evita estouro quando o topo é 0).
+  const max = Math.max(...steps.map((s) => s.value), 1);
+  const frac = (v: number) => Math.max((v / max) * 100, 10); // mín 10% p/ visibilidade
+  const widths = steps.map((s) => frac(s.value));
+
   return (
-    <div className="flex flex-col items-center gap-1 py-1 w-full overflow-hidden">
-      {steps.map((s, i) => {
-        const w = Math.min(Math.max((s.value / top) * 100, 6), 100);
-        const prev = i > 0 ? steps[i - 1].value : s.value;
-        const stepRate = prev > 0 ? s.value / prev : 0;
-        return (
-          <div key={s.label} className="w-full flex flex-col items-center">
+    <div>
+      {/* Corpo do funil: cada faixa é um trapézio que conecta na largura da faixa seguinte */}
+      <div className="w-full">
+        {steps.map((s, i) => {
+          const topW = widths[i];
+          const botW = widths[i + 1] ?? topW * 0.7; // última faixa afunila até a "boca"
+          const tl = (100 - topW) / 2, tr = (100 + topW) / 2;
+          const bl = (100 - botW) / 2, br = (100 + botW) / 2;
+          return (
             <div
-              className="h-11 rounded-md flex items-center justify-center transition-all"
-              style={{ width: `${w}%`, background: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }}
+              key={s.label}
+              className="h-12 flex items-center justify-center text-sm font-semibold text-bg tabular transition-all"
+              style={{
+                background: FUNNEL_COLORS[i % FUNNEL_COLORS.length],
+                clipPath: `polygon(${tl}% 0, ${tr}% 0, ${br}% 100%, ${bl}% 100%)`,
+              }}
+              title={`${s.label}: ${s.value.toLocaleString("pt-BR")}`}
             >
-              <span className="text-sm font-semibold text-bg tabular">
-                {s.value.toLocaleString("pt-BR")}
-              </span>
+              {s.value.toLocaleString("pt-BR")}
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-muted mt-0.5 mb-0.5">
-              <span>{s.label}</span>
-              {i > 0 && <span className="text-faint">· {percent(stepRate)}</span>}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      {/* Legenda: nome, valor e taxa de conversão do passo anterior */}
+      <ul className="mt-3 space-y-1.5">
+        {steps.map((s, i) => {
+          const prev = i > 0 ? steps[i - 1].value : s.value;
+          const rate = prev > 0 ? s.value / prev : 0;
+          return (
+            <li key={s.label} className="flex items-center gap-2 text-xs">
+              <span className="size-2.5 rounded-full shrink-0" style={{ background: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }} />
+              <span className="text-muted">{s.label}</span>
+              <span className="ml-auto tabular font-medium">{s.value.toLocaleString("pt-BR")}</span>
+              <span className="text-faint tabular w-14 text-right">{i > 0 ? percent(rate) : "—"}</span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
