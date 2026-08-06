@@ -6,6 +6,8 @@ export const dynamic = "force-dynamic";
 
 type PageSearchParams = Record<string, string | string[] | undefined>;
 
+// Next 16: searchParams é um Promise — precisa ser aguardado.
+
 function firstParam(v: string | string[] | undefined) {
   return Array.isArray(v) ? v[0] : v;
 }
@@ -15,11 +17,11 @@ function csvParam(v: string | string[] | undefined) {
   return raw ? raw.split(",").map((x) => x.trim()).filter(Boolean) : [];
 }
 
-export default async function CampanhasPage({ searchParams }: { searchParams?: PageSearchParams }) {
-  const [data, period] = await Promise.all([getCampaignsData(), getCurrentPeriod()]);
+export default async function CampanhasPage({ searchParams }: { searchParams?: Promise<PageSearchParams> }) {
+  const [data, period, sp] = await Promise.all([getCampaignsData(), getCurrentPeriod(), searchParams]);
   const periodFrom = period.from ? period.from.toISOString().slice(0, 10) : null;
   const periodTo = period.to ? period.to.toISOString().slice(0, 10) : null;
-  const level = firstParam(searchParams?.level);
+  const level = firstParam(sp?.level);
 
   if (!data) {
     return (
@@ -37,12 +39,12 @@ export default async function CampanhasPage({ searchParams }: { searchParams?: P
         currentPeriodFrom={periodFrom}
         currentPeriodTo={periodTo}
         initialLevel={level === "account" || level === "campaign" || level === "adset" || level === "ad" ? level : "campaign"}
-        initialSelectedAccounts={csvParam(searchParams?.selAccounts)}
-        initialSelectedCampaigns={csvParam(searchParams?.selCampaigns)}
-        initialSelectedAdsets={csvParam(searchParams?.selAdsets)}
-        initialSelectedAds={csvParam(searchParams?.selAds)}
-        initialCampaignScope={csvParam(searchParams?.scopeCampaigns)}
-        initialAdsetScope={csvParam(searchParams?.scopeAdsets)}
+        initialSelectedAccounts={csvParam(sp?.selAccounts)}
+        initialSelectedCampaigns={csvParam(sp?.selCampaigns)}
+        initialSelectedAdsets={csvParam(sp?.selAdsets)}
+        initialSelectedAds={csvParam(sp?.selAds)}
+        initialCampaignScope={csvParam(sp?.scopeCampaigns)}
+        initialAdsetScope={csvParam(sp?.scopeAdsets)}
       />
     </div>
   );

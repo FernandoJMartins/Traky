@@ -64,11 +64,18 @@ function DeliveryCell({ status, reason }: { status: string | null; reason: strin
   if (!status) return <span className="text-faint">—</span>;
   const label = DELIVERY_LABELS[status] ?? status;
   const cls = DELIVERY_CLS[status] ?? "bg-panel-2 text-faint";
+  // Reprovado com motivo: o próprio badge vira "help" e mostra o motivo no hover.
+  const tip = reason ? `Motivo da reprovação: ${reason}` : undefined;
   return (
     <span className="inline-flex items-center gap-1">
-      <span className={`text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap ${cls}`}>{label}</span>
+      <span
+        title={tip}
+        className={`text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap ${cls} ${reason ? "cursor-help" : ""}`}
+      >
+        {label}
+      </span>
       {reason && (
-        <span title={reason} className="cursor-help">
+        <span title={tip} className="cursor-help">
           <AlertTriangle size={12} className="text-neg shrink-0" />
         </span>
       )}
