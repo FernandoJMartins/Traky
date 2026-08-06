@@ -9,7 +9,7 @@ import {
   ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
 import {
-  Search, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Check, TrendingUp, Trophy, BarChart3,
+  Search, SlidersHorizontal, ArrowUp, ArrowDown, Check, TrendingUp, Trophy, BarChart3,
   MoreVertical, Pin, Copy, Play, Pause, CopyPlus, DollarSign, Gauge, Trash2, Filter, X, Pencil, AlertTriangle,
   Building2,
   Layers3,
@@ -35,17 +35,10 @@ const LEVELS: { k: Level; label: string; icon: LucideIcon }[] = [
   { k: "ad", label: "Anúncios", icon: MousePointerClick },
 ];
 const PARENT_LABEL: Record<Level, string> = { account: "—", campaign: "—", adset: "Campanha", ad: "Conjunto" };
-// Subtítulo que muda conforme a aba (nível) selecionada.
-const LEVEL_SUBTITLE: Record<Level, string> = {
-  account: "Visão por conta de anúncios · desempenho consolidado de cada conta",
-  campaign: "conta → campanha → conjunto → anúncio · percebe na hora quem está no lucro",
-  adset: "Visão por conjunto de anúncios · veja qual segmentação está no lucro",
-  ad: "Visão por anúncio · veja qual criativo está no lucro",
-};
 
-// Setinha de ordenação: neutra quando a coluna não é a ordenada; ↑/↓ na coluna ativa.
+// Setinha de ordenação: nada quando a coluna não é a ordenada; só ↑/↓ na coluna ativa.
 function SortIcon({ colKey, sortKey, sortDir }: { colKey: string; sortKey: string; sortDir: "asc" | "desc" }) {
-  if (sortKey !== colKey) return <ArrowUpDown size={12} className="opacity-30" />;
+  if (sortKey !== colKey) return null;
   return sortDir === "asc" ? <ArrowUp size={12} className="text-accent" /> : <ArrowDown size={12} className="text-accent" />;
 }
 
@@ -542,9 +535,6 @@ export function CampaignsView({
 
   return (
     <div className="space-y-4">
-      {/* Subtítulo dinâmico conforme a aba/nível */}
-      <p className="text-sm text-muted -mt-1">{LEVEL_SUBTITLE[level]}</p>
-
       {/* Nível (Sincronizar agora é global, na navbar) */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="grid w-full grid-cols-4 gap-2 rounded-xl border border-line bg-panel p-1 sm:grid-cols-4">

@@ -31,9 +31,6 @@ export default async function CampanhasPage({ searchParams }: { searchParams?: P
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Campanhas</h1>
-      </div>
       <CampaignsView
         data={data}
         currentPeriodKey={period.key}
