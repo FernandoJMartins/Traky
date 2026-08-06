@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { Topbar } from "@/components/shell/Topbar";
+import { BottomNav } from "@/components/shell/BottomNav";
 
 // Layout das telas autenticadas. Guarda de sessão: sem usuário → /login.
 export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: Readonly<{ children: React
         <main className="flex-1 px-4 py-3 w-full mx-auto">
           {children}
         </main>
+        <BottomNav />
       </div>
     </div>
   );

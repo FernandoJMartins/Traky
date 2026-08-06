@@ -14,6 +14,8 @@ export function Funnel({ steps }: { steps: { label: string; value: number }[] })
       <div className="w-full">
         {steps.map((s, i) => {
           const topW = widths[i];
+          const topValue = steps[0]?.value || 1;
+          const percentage = (s.value / topValue) * 100;
           const botW = widths[i + 1] ?? topW * 0.7; // última faixa afunila até a "boca"
           const tl = (100 - topW) / 2, tr = (100 + topW) / 2;
           const bl = (100 - botW) / 2, br = (100 + botW) / 2;
@@ -27,7 +29,7 @@ export function Funnel({ steps }: { steps: { label: string; value: number }[] })
               }}
               title={`${s.label}: ${s.value.toLocaleString("pt-BR")}`}
             >
-              {s.value.toLocaleString("pt-BR")}
+              {percentage.toFixed(1)}%
             </div>
           );
         })}

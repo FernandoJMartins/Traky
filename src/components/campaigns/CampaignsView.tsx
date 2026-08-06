@@ -11,6 +11,11 @@ import {
 import {
   Search, SlidersHorizontal, ArrowUpDown, Check, TrendingUp, Trophy, BarChart3,
   MoreVertical, Pin, Copy, Play, Pause, CopyPlus, DollarSign, Gauge, Trash2, Filter, X, Pencil, AlertTriangle,
+  Building2,
+  Layers3,
+  Mouse,
+  MousePointerClick,
+  FolderKanban,
 } from "lucide-react";
 
 type Col = {
@@ -22,11 +27,11 @@ type Col = {
 };
 
 type Level = "account" | "campaign" | "adset" | "ad";
-const LEVELS: { k: Level; label: string }[] = [
-  { k: "account", label: "Contas" },
-  { k: "campaign", label: "Campanhas" },
-  { k: "adset", label: "Conjuntos" },
-  { k: "ad", label: "Anúncios" },
+const LEVELS: { k: Level; label: string; icon: React.ComponentType }[] = [
+  { k: "account", label: "Contas", icon: Building2 },
+  { k: "campaign", label: "Campanhas", icon: FolderKanban },
+  { k: "adset", label: "Conjuntos", icon: Layers3 },
+  { k: "ad", label: "Anúncios", icon: MousePointerClick },
 ];
 const PARENT_LABEL: Record<Level, string> = { account: "—", campaign: "—", adset: "Campanha", ad: "Conjunto" };
 
@@ -518,14 +523,15 @@ export function CampaignsView({
     <div className="space-y-4">
       {/* Nível (Sincronizar agora é global, na navbar) */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-line bg-panel p-1 sm:grid-cols-4">
+        <div className="grid w-full grid-cols-4 gap-2 rounded-xl border border-line bg-panel p-1 sm:grid-cols-4">
           {LEVELS.map((l) => (
             <button
               key={l.k}
               onClick={() => goToLevel(l.k)}
               className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${level === l.k ? "bg-accent text-bg font-medium shadow-sm" : "text-muted hover:bg-panel-2 hover:text-text"}`}
             >
-              <span className="truncate">{l.label}</span>
+              <l.icon size={16} />
+              <span className="hidden sm:inline truncate">{l.label}</span>
               {((l.k === "account" && selectedAccounts.length > 0) ||
                 (l.k === "campaign" && selectedCampaigns.length > 0) ||
                 (l.k === "adset" && selectedAdsets.length > 0) ||
@@ -713,7 +719,7 @@ export function CampaignsView({
 
       {/* Tabela */}
       <div className="rounded-xl border border-line bg-panel/70 overflow-x-auto">
-        <table className="w-full text-sm min-w-[900px]">
+        <table className="w-full pb-64 text-sm min-w-[900px]">
           <thead>
             <tr className="text-left text-xs text-muted border-b border-line">
               <th className="py-2.5 pl-3 w-8"><input type="checkbox" checked={activeSelected.length > 0 && activeSelected.length === filtered.length} onChange={selectAll} className="accent-[var(--color-accent)]" /></th>
