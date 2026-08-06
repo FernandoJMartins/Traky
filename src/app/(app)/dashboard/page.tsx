@@ -74,8 +74,8 @@ export default async function DashboardPage() {
 
       {/* ---- KPIs secundários ---- */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KpiCard label="Vendas Pendentes" value={money(kpis.pendingRevenue)} tone="warn" />
-        <KpiCard label="Margem" value={percent(kpis.margin)} icon={<Percent size={16} />} />
+        <KpiCard label="Vendas Pendentes" value={money(kpis.pendingRevenue)} />
+        <KpiCard label="Margem de Lucro" value={percent(kpis.margin)} icon={<Percent size={16} />} />
         <KpiCard label="CPA" value={kpis.cpaCents !== null ? money(kpis.cpaCents) : "N/A"} />
         <KpiCard label="Imposto Meta Ads" value={money(kpis.metaTax)} />
         <KpiCard label="Taxas" value={money(kpis.fees)} />

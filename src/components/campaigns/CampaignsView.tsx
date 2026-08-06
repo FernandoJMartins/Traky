@@ -88,7 +88,7 @@ const COLUMNS: Col[] = [
   { key: "profitCents", label: "Lucro", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.profitCents >= 0 ? "text-pos" : "text-neg"}`}>{money(r.profitCents)}</span>, value: (r) => r.profitCents },
   { key: "budgetCents", label: "Orçamento", numeric: true, render: (r) => budgetCell(r.budgetCents), value: (r) => r.budgetCents },
   { key: "bidCents", label: "Bid Cap", numeric: true, render: (r) => (r.bidCents != null ? money(r.bidCents) : "—"), value: (r) => r.bidCents ?? -Infinity },
-  { key: "roi", label: "ROI", numeric: true, render: (r) => ratio(r.roi), value: (r) => r.roi ?? -Infinity },
+  { key: "roi", label: "ROI", numeric: true, render: (r) => <span className={`whitespace-nowrap ${r.roi == null ? "" : r.roi >= 0 ? "text-pos" : "text-neg"}`}>{ratio(r.roi)}</span>, value: (r) => r.roi ?? -Infinity },
   { key: "roas", label: "ROAS", numeric: true, render: (r) => multiple(r.roas), value: (r) => r.roas ?? -Infinity },
   { key: "margin", label: "Margem", numeric: true, render: (r) => percent(r.margin), value: (r) => r.margin ?? -Infinity },
   { key: "cpaCents", label: "CPA", numeric: true, render: (r) => (r.cpaCents !== null ? money(r.cpaCents) : "N/A"), value: (r) => r.cpaCents ?? Infinity },
