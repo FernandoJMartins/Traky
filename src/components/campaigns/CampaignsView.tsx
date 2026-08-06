@@ -371,14 +371,22 @@ export function CampaignsView({
       if (onlySelected && !activeSelectedSet.has(r.id)) return false;
       return true;
     });
-    const col = COLUMNS.find((c) => c.key === sortKey);
+    // "name" não está em COLUMNS (é a coluna fixa do nível) — ordena pelo r.name.
+    const col = sortKey === "name" ? null : COLUMNS.find((c) => c.key === sortKey);
     rows = [...rows].sort((a, b) => {
       const pa = pinned.has(a.id) ? 1 : 0;
       const pb = pinned.has(b.id) ? 1 : 0;
       if (pa !== pb) return pb - pa;
-      if (!col) return 0;
-      const va = col.value(a), vb = col.value(b);
-      const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
+      let cmp: number;
+      if (sortKey === "name") {
+        // Numérico p/ nomes com números (ex.: "Anúncio 2" antes de "Anúncio 10").
+        cmp = a.name.localeCompare(b.name, "pt-BR", { numeric: true, sensitivity: "base" });
+      } else if (col) {
+        const va = col.value(a), vb = col.value(b);
+        cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
+      } else {
+        return 0;
+      }
       return sortDir === "asc" ? cmp : -cmp;
     });
     return rows;
