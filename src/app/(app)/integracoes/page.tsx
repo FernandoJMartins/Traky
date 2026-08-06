@@ -33,6 +33,13 @@ export default async function IntegracoesPage() {
         .from(apiCredentials)
         .where(eq(apiCredentials.dashboardId, dashboard.id))
         .orderBy(apiCredentials.createdAt)
+        .then((rows) =>
+          rows.map((row) => ({
+            ...row,
+            lastUsedAt: row.lastUsedAt ? row.lastUsedAt.toISOString() : null,
+            createdAt: row.createdAt.toISOString(),
+          })),
+        )
     : [];
 
   const oauthConfigured = !!process.env.META_APP_ID;
